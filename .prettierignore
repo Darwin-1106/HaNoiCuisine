@@ -1,0 +1,9 @@
+# Files Prettier must not format (generated or managed by tools)
+node_modules
+dist
+**/prisma/migrations/**
+
+# npm rewrites these on every install; let npm own their formatting
+package.json
+**/package.json
+package-lock.json
