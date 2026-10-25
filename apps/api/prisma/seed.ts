@@ -39,12 +39,48 @@ async function main() {
 
     // 3. Món ăn (kèm mùa ngon nhất)
     const dishes = [
-        { name: 'Phở bò', slug: 'pho-bo', description: 'Món nước đặc trưng của Hà Nội với nước dùng hầm xương trong và ngọt.', season: 'dong', months: '10-2' },
-        { name: 'Bún chả', slug: 'bun-cha', description: 'Chả nướng than hoa ăn kèm bún, rau sống và nước chấm chua ngọt.', season: 'ha', months: '5-8' },
-        { name: 'Chả cá', slug: 'cha-ca', description: 'Cá lăng áp chảo với nghệ, thì là, ăn cùng bún và mắm tôm.', season: 'dong', months: '10-2' },
-        { name: 'Bánh cuốn', slug: 'banh-cuon', description: 'Lớp bánh gạo mỏng cuốn nhân thịt, mộc nhĩ, ăn với chả và nước chấm.', season: 'xuan', months: '2-4' },
-        { name: 'Cà phê trứng', slug: 'ca-phe-trung', description: 'Cà phê pha lòng đỏ trứng đánh bông, béo ngậy.', season: 'dong', months: '10-2' },
-        { name: 'Cốm làng Vòng', slug: 'com-lang-vong', description: 'Cốm xanh dẻo thơm, đặc sản mùa thu Hà Nội.', season: 'thu', months: '8-10' },
+        {
+            name: 'Phở bò',
+            slug: 'pho-bo',
+            description: 'Món nước đặc trưng của Hà Nội với nước dùng hầm xương trong và ngọt.',
+            season: 'dong',
+            months: '10-2',
+        },
+        {
+            name: 'Bún chả',
+            slug: 'bun-cha',
+            description: 'Chả nướng than hoa ăn kèm bún, rau sống và nước chấm chua ngọt.',
+            season: 'ha',
+            months: '5-8',
+        },
+        {
+            name: 'Chả cá',
+            slug: 'cha-ca',
+            description: 'Cá lăng áp chảo với nghệ, thì là, ăn cùng bún và mắm tôm.',
+            season: 'dong',
+            months: '10-2',
+        },
+        {
+            name: 'Bánh cuốn',
+            slug: 'banh-cuon',
+            description: 'Lớp bánh gạo mỏng cuốn nhân thịt, mộc nhĩ, ăn với chả và nước chấm.',
+            season: 'xuan',
+            months: '2-4',
+        },
+        {
+            name: 'Cà phê trứng',
+            slug: 'ca-phe-trung',
+            description: 'Cà phê pha lòng đỏ trứng đánh bông, béo ngậy.',
+            season: 'dong',
+            months: '10-2',
+        },
+        {
+            name: 'Cốm làng Vòng',
+            slug: 'com-lang-vong',
+            description: 'Cốm xanh dẻo thơm, đặc sản mùa thu Hà Nội.',
+            season: 'thu',
+            months: '8-10',
+        },
     ];
     for (const d of dishes) {
         const dish = await prisma.dish.upsert({
@@ -62,11 +98,66 @@ async function main() {
 
     // 4. Quán ăn (DỮ LIỆU MẪU - kiểm tra lại địa chỉ, giá, toạ độ trước khi công bố)
     const restaurants = [
-        { name: 'Phở Thìn Lò Đúc', slug: 'pho-thin-lo-duc', address: '13 Lò Đúc', district: 'hai-ba-trung', lat: 21.0187, lng: 105.8566, priceMin: 50000, priceMax: 80000, openHours: '06:00 - 21:00', dish: 'pho-bo' },
-        { name: 'Bún chả Hương Liên', slug: 'bun-cha-huong-lien', address: '24 Lê Văn Hưu', district: 'hai-ba-trung', lat: 21.0173, lng: 105.8517, priceMin: 50000, priceMax: 90000, openHours: '08:00 - 20:00', dish: 'bun-cha' },
-        { name: 'Chả cá Thăng Long', slug: 'cha-ca-thang-long', address: '21 Đường Thành', district: 'hoan-kiem', lat: 21.0335, lng: 105.8456, priceMin: 120000, priceMax: 200000, openHours: '10:00 - 21:30', dish: 'cha-ca' },
-        { name: 'Bánh cuốn Bà Hoành', slug: 'banh-cuon-ba-hoanh', address: '66 Tô Hiến Thành', district: 'hai-ba-trung', lat: 21.0163, lng: 105.8493, priceMin: 30000, priceMax: 60000, openHours: '06:30 - 21:00', dish: 'banh-cuon' },
-        { name: 'Cà phê Giảng', slug: 'ca-phe-giang', address: '39 Nguyễn Hữu Huân', district: 'hoan-kiem', lat: 21.0331, lng: 105.8523, priceMin: 30000, priceMax: 50000, openHours: '07:00 - 22:00', dish: 'ca-phe-trung' },
+        {
+            name: 'Phở Thìn Lò Đúc',
+            slug: 'pho-thin-lo-duc',
+            address: '13 Lò Đúc',
+            district: 'hai-ba-trung',
+            lat: 21.0187,
+            lng: 105.8566,
+            priceMin: 50000,
+            priceMax: 80000,
+            openHours: '06:00 - 21:00',
+            dish: 'pho-bo',
+        },
+        {
+            name: 'Bún chả Hương Liên',
+            slug: 'bun-cha-huong-lien',
+            address: '24 Lê Văn Hưu',
+            district: 'hai-ba-trung',
+            lat: 21.0173,
+            lng: 105.8517,
+            priceMin: 50000,
+            priceMax: 90000,
+            openHours: '08:00 - 20:00',
+            dish: 'bun-cha',
+        },
+        {
+            name: 'Chả cá Thăng Long',
+            slug: 'cha-ca-thang-long',
+            address: '21 Đường Thành',
+            district: 'hoan-kiem',
+            lat: 21.0335,
+            lng: 105.8456,
+            priceMin: 120000,
+            priceMax: 200000,
+            openHours: '10:00 - 21:30',
+            dish: 'cha-ca',
+        },
+        {
+            name: 'Bánh cuốn Bà Hoành',
+            slug: 'banh-cuon-ba-hoanh',
+            address: '66 Tô Hiến Thành',
+            district: 'hai-ba-trung',
+            lat: 21.0163,
+            lng: 105.8493,
+            priceMin: 30000,
+            priceMax: 60000,
+            openHours: '06:30 - 21:00',
+            dish: 'banh-cuon',
+        },
+        {
+            name: 'Cà phê Giảng',
+            slug: 'ca-phe-giang',
+            address: '39 Nguyễn Hữu Huân',
+            district: 'hoan-kiem',
+            lat: 21.0331,
+            lng: 105.8523,
+            priceMin: 30000,
+            priceMax: 50000,
+            openHours: '07:00 - 22:00',
+            dish: 'ca-phe-trung',
+        },
     ];
     for (const r of restaurants) {
         const district = await prisma.district.findUniqueOrThrow({ where: { slug: r.district } });
@@ -75,8 +166,15 @@ async function main() {
             where: { slug: r.slug },
             update: {},
             create: {
-                name: r.name, slug: r.slug, address: r.address, districtId: district.id,
-                lat: r.lat, lng: r.lng, priceMin: r.priceMin, priceMax: r.priceMax, openHours: r.openHours,
+                name: r.name,
+                slug: r.slug,
+                address: r.address,
+                districtId: district.id,
+                lat: r.lat,
+                lng: r.lng,
+                priceMin: r.priceMin,
+                priceMax: r.priceMax,
+                openHours: r.openHours,
                 description: `Quán nổi tiếng với món ${dish.name}.`,
             },
         });
@@ -123,7 +221,11 @@ async function main() {
     const itinerary = await prisma.itinerary.upsert({
         where: { slug: '1-ngay-an-gi-o-ha-noi' },
         update: {},
-        create: { title: '1 ngày ăn gì ở Hà Nội', slug: '1-ngay-an-gi-o-ha-noi', description: 'Lộ trình ăn uống từ sáng đến tối.' },
+        create: {
+            title: '1 ngày ăn gì ở Hà Nội',
+            slug: '1-ngay-an-gi-o-ha-noi',
+            description: 'Lộ trình ăn uống từ sáng đến tối.',
+        },
     });
     const stopsCount = await prisma.itineraryStop.count({ where: { itineraryId: itinerary.id } });
     if (stopsCount === 0) {
