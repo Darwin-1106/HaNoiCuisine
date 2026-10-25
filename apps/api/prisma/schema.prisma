@@ -1,0 +1,235 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum TimeSlot {
+  MORNING
+  NOON
+  AFTERNOON
+  EVENING
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+model District {
+  id          Int          @id @default(autoincrement())
+  name        String       @db.VarChar(100)
+  slug        String       @unique @db.VarChar(120)
+  restaurants Restaurant[]
+}
+
+model Restaurant {
+  id          Int      @id @default(autoincrement())
+  name        String   @db.VarChar(200)
+  slug        String   @unique @db.VarChar(220)
+  address     String   @db.VarChar(300)
+  districtId  Int
+  lat         Decimal? @db.Decimal(9, 6)
+  lng         Decimal? @db.Decimal(9, 6)
+  priceMin    Int?
+  priceMax    Int?
+  openHours   String?  @db.VarChar(200)
+  phone       String?  @db.VarChar(30)
+  description String?  @db.Text
+  coverImage  String?  @db.VarChar(500)
+  published   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  district  District         @relation(fields: [districtId], references: [id])
+  dishes    RestaurantDish[]
+  tags      RestaurantTag[]
+  reviews   Review[]
+  favorites Favorite[]
+  stops     ItineraryStop[]
+
+  @@index([districtId])
+  @@fulltext([name, description])
+}
+
+model Dish {
+  id          Int     @id @default(autoincrement())
+  name        String  @db.VarChar(200)
+  slug        String  @unique @db.VarChar(220)
+  description String? @db.Text
+  originStory String? @db.Text
+  image       String? @db.VarChar(500)
+
+  restaurants RestaurantDish[]
+  seasons     DishSeason[]
+  tags        DishTag[]
+  recipes     Recipe[]
+  stops       ItineraryStop[]
+}
+
+model RestaurantDish {
+  restaurantId Int
+  dishId       Int
+  signature    Boolean @default(false)
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  dish       Dish       @relation(fields: [dishId], references: [id], onDelete: Cascade)
+
+  @@id([restaurantId, dishId])
+}
+
+model Tag {
+  id          Int             @id @default(autoincrement())
+  name        String          @db.VarChar(100)
+  slug        String          @unique @db.VarChar(120)
+  restaurants RestaurantTag[]
+  dishes      DishTag[]
+}
+
+model RestaurantTag {
+  restaurantId Int
+  tagId        Int
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  tag          Tag        @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([restaurantId, tagId])
+}
+
+model DishTag {
+  dishId Int
+  tagId  Int
+  dish   Dish @relation(fields: [dishId], references: [id], onDelete: Cascade)
+  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([dishId, tagId])
+}
+
+model Season {
+  id     Int          @id @default(autoincrement())
+  name   String       @db.VarChar(50)
+  slug   String       @unique @db.VarChar(50)
+  dishes DishSeason[]
+}
+
+model DishSeason {
+  dishId     Int
+  seasonId   Int
+  bestMonths String? @db.VarChar(50)
+  dish       Dish    @relation(fields: [dishId], references: [id], onDelete: Cascade)
+  season     Season  @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+
+  @@id([dishId, seasonId])
+}
+
+model Article {
+  id          Int       @id @default(autoincrement())
+  title       String    @db.VarChar(250)
+  slug        String    @unique @db.VarChar(270)
+  summary     String?   @db.VarChar(500)
+  contentMd   String    @db.LongText
+  coverImage  String?   @db.VarChar(500)
+  authorId    Int?
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  author User? @relation(fields: [authorId], references: [id])
+
+  @@index([authorId])
+}
+
+model Recipe {
+  id          Int        @id @default(autoincrement())
+  dishId      Int
+  title       String     @db.VarChar(250)
+  slug        String     @unique @db.VarChar(270)
+  servings    Int        @default(2)
+  cookMinutes Int?
+  difficulty  Difficulty @default(MEDIUM)
+  stepsJson   Json
+  image       String?    @db.VarChar(500)
+
+  dish        Dish               @relation(fields: [dishId], references: [id])
+  ingredients RecipeIngredient[]
+
+  @@index([dishId])
+}
+
+model RecipeIngredient {
+  id       Int     @id @default(autoincrement())
+  recipeId Int
+  name     String  @db.VarChar(200)
+  quantity String? @db.VarChar(50)
+  unit     String? @db.VarChar(50)
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@index([recipeId])
+}
+
+model Itinerary {
+  id          Int             @id @default(autoincrement())
+  title       String          @db.VarChar(250)
+  slug        String          @unique @db.VarChar(270)
+  description String?         @db.Text
+  stops       ItineraryStop[]
+}
+
+model ItineraryStop {
+  id            Int      @id @default(autoincrement())
+  itineraryId   Int
+  orderNo       Int
+  timeSlot      TimeSlot
+  restaurantId  Int?
+  dishId        Int?
+  note          String?  @db.VarChar(500)
+
+  itinerary  Itinerary   @relation(fields: [itineraryId], references: [id], onDelete: Cascade)
+  restaurant Restaurant? @relation(fields: [restaurantId], references: [id])
+  dish       Dish?       @relation(fields: [dishId], references: [id])
+
+  @@index([itineraryId, orderNo])
+}
+
+model User {
+  id           Int        @id @default(autoincrement())
+  email        String     @unique @db.VarChar(200)
+  passwordHash String     @db.VarChar(100)
+  name         String     @db.VarChar(100)
+  role         Role       @default(USER)
+  createdAt    DateTime   @default(now())
+
+  articles  Article[]
+  reviews   Review[]
+  favorites Favorite[]
+}
+
+model Review {
+  id           Int      @id @default(autoincrement())
+  restaurantId Int
+  userId       Int
+  rating       Int
+  comment      String?  @db.Text
+  createdAt    DateTime @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, userId])
+}
+
+model Favorite {
+  userId       Int
+  restaurantId Int
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@id([userId, restaurantId])
+}

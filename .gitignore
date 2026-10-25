@@ -1,0 +1,19 @@
+# Dependencies and build output
+node_modules
+.next
+dist
+
+# Environment files (secrets and connection strings), including templates
+.env
+.env.*
+
+# Local-only documentation (devlog)
+docs/
+
+# Local-only infrastructure configuration
+docker-compose*.yml
+
+# Editor and OS files
+.idea/
+.DS_Store
+*.log
