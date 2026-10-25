@@ -8,6 +8,8 @@
     "build": "tsc -p .",
     "start": "node dist/index.js",
     "test": "vitest run",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p .",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts",
     "prisma:generate": "prisma generate"
@@ -25,6 +27,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/cookie-parser": "^1.4.7",
     "@types/cors": "^2.8.17",
@@ -32,10 +35,14 @@
     "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^22.0.0",
     "@types/supertest": "^6.0.2",
+    "eslint": "^10.13.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.13.0",
     "prisma": "^6.0.0",
     "supertest": "^7.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
+    "typescript-eslint": "^8.72.0",
     "vitest": "^2.1.0"
   }
 }
