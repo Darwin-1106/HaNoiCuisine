@@ -7,7 +7,7 @@ import * as restaurantService from './restaurant.service.js';
 export async function list(req: Request, res: Response) {
     const parsed = listRestaurantsQuery.safeParse(req.query);
     if (!parsed.success) {
-        res.status(400).json({ error: 'Tham số không hợp lệ', details: z.flattenError(parsed.error)});
+        res.status(400).json({ error: 'Tham số không hợp lệ', details: z.flattenError(parsed.error) });
         return;
     }
     res.json(await restaurantService.listRestaurants(parsed.data));
