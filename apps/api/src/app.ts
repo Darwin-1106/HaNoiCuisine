@@ -4,6 +4,7 @@ import cors from 'cors';
 import { requireEnv } from './lib/env.js';
 import { dishRouter } from './modules/dishes/dish.routes.js';
 import { restaurantRouter } from './modules/restaurants/restaurant.routes.js';
+import { seasonRouter } from './modules/seasons/season.routes.js';
 
 export function createApp() {
     const app = express();
@@ -16,6 +17,7 @@ export function createApp() {
     });
     app.use('/api/v1/restaurants', restaurantRouter);
     app.use('/api/v1/dishes', dishRouter);
+    app.use('/api/v1/seasons', seasonRouter);
 
     app.use((_req, res) => {
         res.status(404).json({ error: 'Không tìm thấy đường dẫn' });
