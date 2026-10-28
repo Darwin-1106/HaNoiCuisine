@@ -1,10 +1,10 @@
 // Dish routes tests: HTTP status codes, query validation and responses with the service mocked
 import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
-import { createApp } from '../../app.js';
-import * as dishService from './dish.service.js';
+import { createApp } from '../../../app.js';
+import * as dishService from '../services/dish.service.js';
 
-vi.mock('./dish.service.js', () => ({
+vi.mock('../services/dish.service.js', () => ({
     listDishes: vi.fn(),
     getDishBySlug: vi.fn(),
 }));

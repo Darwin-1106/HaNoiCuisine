@@ -1,8 +1,8 @@
 // Dish controller: validate request, call service, send HTTP response
 import type { Request, Response } from 'express';
 import { z } from 'zod';
-import { listDishesQuery } from './dish.schema.js';
-import * as dishService from './dish.service.js';
+import { listDishesQuery } from '../schemas/dish.schema.js';
+import * as dishService from '../services/dish.service.js';
 
 export async function list(req: Request, res: Response) {
     const parsed = listDishesQuery.safeParse(req.query);

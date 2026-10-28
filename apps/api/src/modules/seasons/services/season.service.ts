@@ -1,6 +1,6 @@
 // Season service: business logic and database queries (Prisma)
 import type { Prisma } from '@prisma/client';
-import { prisma } from '../../lib/prisma.js';
+import { prisma } from '../../../database/prisma.js';
 
 const seasonDishSelect = {
     bestMonths: true,

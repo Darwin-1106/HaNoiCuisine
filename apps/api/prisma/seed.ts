@@ -1,7 +1,7 @@
 // Seed the database with sample data and an admin account for local development
 import { PrismaClient, TimeSlot, Difficulty } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-import { requireEnv } from '../src/lib/env.js';
+import { requireEnv } from '../src/config/env.js';
 
 try {
     process.loadEnvFile();

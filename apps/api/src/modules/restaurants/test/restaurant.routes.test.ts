@@ -1,10 +1,10 @@
 // Restaurant routes tests: HTTP status codes, query validation and responses with the service mocked
 import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
-import { createApp } from '../../app.js';
-import * as restaurantService from './restaurant.service.js';
+import { createApp } from '../../../app.js';
+import * as restaurantService from '../services/restaurant.service.js';
 
-vi.mock('./restaurant.service.js', () => ({
+vi.mock('../services/restaurant.service.js', () => ({
     listRestaurants: vi.fn(),
     getRestaurantBySlug: vi.fn(),
 }));

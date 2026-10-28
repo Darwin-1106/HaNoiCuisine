@@ -1,6 +1,6 @@
 // Season controller: call service and send HTTP response
 import type { Request, Response } from 'express';
-import * as seasonService from './season.service.js';
+import * as seasonService from '../services/season.service.js';
 
 export async function list(_req: Request, res: Response) {
     res.json(await seasonService.listSeasons());
