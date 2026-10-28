@@ -1,8 +1,8 @@
 // Restaurant controller: validate request, call service, send HTTP response
 import type { Request, Response } from 'express';
 import { z } from 'zod';
-import { listRestaurantsQuery } from './restaurant.schema.js';
-import * as restaurantService from './restaurant.service.js';
+import { listRestaurantsQuery } from '../schemas/restaurant.schema.js';
+import * as restaurantService from '../services/restaurant.service.js';
 
 export async function list(req: Request, res: Response) {
     const parsed = listRestaurantsQuery.safeParse(req.query);

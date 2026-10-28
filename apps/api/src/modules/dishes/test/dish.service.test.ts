@@ -1,9 +1,9 @@
 // Dish service tests: Prisma query building (filters, paging, published-only restaurants) with Prisma mocked
 import { describe, expect, it, vi } from 'vitest';
-import { prisma } from '../../lib/prisma.js';
-import { getDishBySlug, listDishes } from './dish.service.js';
+import { prisma } from '../../../database/prisma.js';
+import { getDishBySlug, listDishes } from '../services/dish.service.js';
 
-vi.mock('../../lib/prisma.js', () => ({
+vi.mock('../../../database/prisma.js', () => ({
     prisma: {
         dish: {
             findMany: vi.fn(),

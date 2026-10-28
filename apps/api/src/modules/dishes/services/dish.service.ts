@@ -1,7 +1,7 @@
 // Dish service: business logic and database queries (Prisma)
 import type { Prisma } from '@prisma/client';
-import { prisma } from '../../lib/prisma.js';
-import type { ListDishesQuery } from './dish.schema.js';
+import { prisma } from '../../../database/prisma.js';
+import type { ListDishesQuery } from '../schemas/dish.schema.js';
 
 const seasonSelect = {
     bestMonths: true,

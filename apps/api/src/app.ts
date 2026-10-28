@@ -1,10 +1,10 @@
 // Express app: global middleware, module routes, 404 and error handlers
 import express, { type NextFunction, type Request, type Response } from 'express';
 import cors from 'cors';
-import { requireEnv } from './lib/env.js';
-import { dishRouter } from './modules/dishes/dish.routes.js';
-import { restaurantRouter } from './modules/restaurants/restaurant.routes.js';
-import { seasonRouter } from './modules/seasons/season.routes.js';
+import { requireEnv } from './config/env.js';
+import { dishRouter } from './modules/dishes/routes/dish.routes.js';
+import { restaurantRouter } from './modules/restaurants/routes/restaurant.routes.js';
+import { seasonRouter } from './modules/seasons/routes/season.routes.js';
 
 export function createApp() {
     const app = express();

@@ -1,7 +1,7 @@
 // Season routes: map /api/v1/seasons URLs to controller functions
 import { Router } from 'express';
-import { asyncHandler } from '../../lib/async-handler.js';
-import * as controller from './season.controller.js';
+import { asyncHandler } from '../../../middlewares/async-handler.js';
+import * as controller from '../controllers/season.controller.js';
 
 export const seasonRouter = Router();
 

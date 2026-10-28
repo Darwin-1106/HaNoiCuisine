@@ -1,9 +1,9 @@
 // Season service tests: Prisma queries and the _count to dishCount mapping with Prisma mocked
 import { describe, expect, it, vi } from 'vitest';
-import { prisma } from '../../lib/prisma.js';
-import { getSeasonBySlug, listSeasons } from './season.service.js';
+import { prisma } from '../../../database/prisma.js';
+import { getSeasonBySlug, listSeasons } from '../services/season.service.js';
 
-vi.mock('../../lib/prisma.js', () => ({
+vi.mock('../../../database/prisma.js', () => ({
     prisma: {
         season: {
             findMany: vi.fn(),

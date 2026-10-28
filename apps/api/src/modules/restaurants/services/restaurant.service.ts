@@ -1,7 +1,7 @@
 // Restaurant service: business logic and database queries (Prisma)
 import type { Prisma } from '@prisma/client';
-import { prisma } from '../../lib/prisma.js';
-import type { ListRestaurantsQuery } from './restaurant.schema.js';
+import { prisma } from '../../../database/prisma.js';
+import type { ListRestaurantsQuery } from '../schemas/restaurant.schema.js';
 
 export async function listRestaurants(query: ListRestaurantsQuery) {
     const { district, dish, q, maxPrice, page, limit } = query;

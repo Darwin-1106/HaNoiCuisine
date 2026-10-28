@@ -1,10 +1,10 @@
 // Season routes tests: HTTP status codes and responses with the service mocked
 import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
-import { createApp } from '../../app.js';
-import * as seasonService from './season.service.js';
+import { createApp } from '../../../app.js';
+import * as seasonService from '../services/season.service.js';
 
-vi.mock('./season.service.js', () => ({
+vi.mock('../services/season.service.js', () => ({
     listSeasons: vi.fn(),
     getSeasonBySlug: vi.fn(),
 }));

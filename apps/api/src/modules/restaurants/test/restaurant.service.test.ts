@@ -1,9 +1,9 @@
 // Restaurant service tests: Prisma query building (filters, paging, privacy) with Prisma mocked
 import { describe, expect, it, vi } from 'vitest';
-import { prisma } from '../../lib/prisma.js';
-import { getRestaurantBySlug, listRestaurants } from './restaurant.service.js';
+import { prisma } from '../../../database/prisma.js';
+import { getRestaurantBySlug, listRestaurants } from '../services/restaurant.service.js';
 
-vi.mock('../../lib/prisma.js', () => ({
+vi.mock('../../../database/prisma.js', () => ({
     prisma: {
         restaurant: {
             findMany: vi.fn(),
