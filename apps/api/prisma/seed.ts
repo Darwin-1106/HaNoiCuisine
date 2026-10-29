@@ -244,7 +244,7 @@ async function main() {
     }
 
     // 7. Tài khoản admin
-    await prisma.user.upsert({
+    const admin = await prisma.user.upsert({
         where: { email: adminEmail },
         update: {},
         create: {
@@ -254,6 +254,44 @@ async function main() {
             passwordHash: await bcrypt.hash(adminPassword, 10),
         },
     });
+    // 8. Cẩm nang
+    const articles = [
+        {
+            title: 'Ăn sáng ở Hà Nội: nên thử gì?',
+            slug: 'an-sang-o-ha-noi',
+            summary: 'Những món sáng quen thuộc của người Hà Nội và giờ ăn ngon nhất.',
+            contentMd: '## Phở\n\nĂn sớm khi nước dùng còn nóng.\n\n## Bánh cuốn\n\nChọn quán tráng bánh tại chỗ.',
+            publishedAt: new Date('2026-10-01T00:00:00Z'),
+        },
+        {
+            title: 'Mẹo đi ăn phố cổ',
+            slug: 'meo-di-an-pho-co',
+            summary: 'Hỏi giá trước và chọn quán đông người địa phương.',
+            contentMd: '## Hỏi giá trước\n\nQuán không có bảng giá thì hỏi trước khi gọi món.',
+            publishedAt: new Date('2026-10-10T00:00:00Z'),
+        },
+        {
+            title: 'Mùa thu Hà Nội ăn gì?',
+            slug: 'mua-thu-ha-noi-an-gi',
+            summary: 'Cốm làng Vòng, sấu: hương vị chỉ có khi thu về.',
+            contentMd: '## Cốm làng Vòng\n\nNgon nhất từ tháng 8 đến tháng 10.',
+            publishedAt: new Date('2026-10-20T00:00:00Z'),
+        },
+        {
+            title: 'Văn hoá trà đá vỉa hè',
+            slug: 'van-hoa-tra-da-via-he',
+            summary: 'Bản nháp, chưa đăng.',
+            contentMd: '## Trà đá\n\nĐang viết.',
+            publishedAt: null,
+        },
+    ];
+    for (const a of articles) {
+        await prisma.article.upsert({
+            where: { slug: a.slug },
+            update: {},
+            create: { ...a, authorId: admin.id },
+        });
+    }
 
     console.log('Seed xong.');
 }
