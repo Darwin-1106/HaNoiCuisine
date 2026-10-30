@@ -2,6 +2,7 @@
 import express, { type NextFunction, type Request, type Response } from 'express';
 import cors from 'cors';
 import { requireEnv } from './config/env.js';
+import { articleRouter } from './modules/articles/routes/article.routes.js';
 import { dishRouter } from './modules/dishes/routes/dish.routes.js';
 import { recipeRouter } from './modules/recipes/routes/recipe.routes.js';
 import { restaurantRouter } from './modules/restaurants/routes/restaurant.routes.js';
@@ -20,6 +21,7 @@ export function createApp() {
     app.use('/api/v1/dishes', dishRouter);
     app.use('/api/v1/seasons', seasonRouter);
     app.use('/api/v1/recipes', recipeRouter);
+    app.use('/api/v1/articles', articleRouter);
 
     app.use((_req, res) => {
         res.status(404).json({ error: 'Không tìm thấy đường dẫn' });
