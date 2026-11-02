@@ -1,38 +1,55 @@
-// Auth service tests: password hashing, login checks and JWT verification with Prisma mocked
+// Auth service tests: password hashing, login checks and session storage with Prisma mocked
+import { createHash } from 'node:crypto';
 import { Prisma } from '@prisma/client';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import { describe, expect, it, vi } from 'vitest';
 import { prisma } from '../../../database/prisma.js';
-import { getUserById, login, register, signToken, TOKEN_TTL_SECONDS, verifyToken } from '../services/auth.service.js';
+import {
+    createSession,
+    deleteSession,
+    getUserBySessionToken,
+    login,
+    register,
+    SESSION_TTL_SECONDS,
+} from '../services/auth.service.js';
+import { hashPassword, verifyPassword } from '../services/password.js';
 
+vi.mock('../services/password.js', { spy: true });
 vi.mock('../../../database/prisma.js', () => ({
     prisma: {
         user: {
             create: vi.fn(),
             findUnique: vi.fn(),
         },
+        session: {
+            create: vi.fn(),
+            findUnique: vi.fn(),
+            deleteMany: vi.fn(),
+        },
     },
 }));
 
 const db = vi.mocked(prisma.user);
-const SECRET = 'test-secret';
+const sessions = vi.mocked(prisma.session);
 const publicUser = { id: 1, email: 'an@example.com', name: 'An', role: 'USER' };
 const registerData = { email: 'an@example.com', password: 'matkhau123', name: 'An' };
+
+function sha256(value: string) {
+    return createHash('sha256').update(value).digest('hex');
+}
 
 function knownPrismaError(code: string) {
     return new Prisma.PrismaClientKnownRequestError('Prisma error', { code, clientVersion: 'test' });
 }
 
 describe('register', () => {
-    it('stores a bcrypt hash instead of the password and returns the public user', async () => {
+    it('stores an Argon2id hash instead of the password and returns the public user', async () => {
         db.create.mockResolvedValue(publicUser as never);
 
         const result = await register(registerData);
 
         const { data } = db.create.mock.calls[0][0];
-        expect(data.passwordHash).not.toBe(registerData.password);
-        expect(await bcrypt.compare(registerData.password, data.passwordHash)).toBe(true);
+        expect(data.passwordHash).toMatch(/^\$argon2id\$/);
+        expect(await verifyPassword(registerData.password, data.passwordHash)).toBe(true);
         expect(result).toEqual(publicUser);
     });
 
@@ -64,14 +81,14 @@ describe('login', () => {
     const credentials = { email: 'an@example.com', password: 'matkhau123' };
 
     it('returns the user without the hash when the password matches', async () => {
-        const passwordHash = await bcrypt.hash(credentials.password, 4);
+        const passwordHash = await hashPassword(credentials.password);
         db.findUnique.mockResolvedValue({ ...publicUser, passwordHash } as never);
 
         expect(await login(credentials)).toEqual(publicUser);
     });
 
     it('returns null when the password is wrong', async () => {
-        const passwordHash = await bcrypt.hash('mat-khau-khac', 4);
+        const passwordHash = await hashPassword('mat-khau-khac');
         db.findUnique.mockResolvedValue({ ...publicUser, passwordHash } as never);
 
         expect(await login(credentials)).toBeNull();
@@ -79,49 +96,68 @@ describe('login', () => {
 
     it('still compares a hash when the email does not exist, to keep timing the same', async () => {
         db.findUnique.mockResolvedValue(null);
-        const compare = vi.spyOn(bcrypt, 'compare');
 
         expect(await login(credentials)).toBeNull();
-        expect(compare).toHaveBeenCalledTimes(1);
+        expect(verifyPassword).toHaveBeenCalledTimes(1);
     });
 });
 
-describe('getUserById', () => {
-    it('never selects the password hash', async () => {
-        db.findUnique.mockResolvedValue(publicUser as never);
+describe('createSession', () => {
+    it('stores only a hash of a long random token, with the configured lifetime', async () => {
+        vi.useFakeTimers({ now: new Date('2026-11-02T00:00:00Z') });
 
-        expect(await getUserById(1)).toEqual(publicUser);
-        expect(db.findUnique.mock.calls[0][0].select).not.toHaveProperty('passwordHash');
+        const token = await createSession(7);
+
+        const { data } = sessions.create.mock.calls[0][0];
+        expect(token).toMatch(/^[\w-]{43}$/);
+        expect(data.userId).toBe(7);
+        expect(data.tokenHash).toBe(sha256(token));
+        expect(data.expiresAt).toEqual(new Date(Date.now() + SESSION_TTL_SECONDS * 1000));
+        vi.useRealTimers();
+    });
+
+    it('creates a different token each time', async () => {
+        expect(await createSession(7)).not.toBe(await createSession(7));
+    });
+
+    it('removes the expired sessions of that user only', async () => {
+        await createSession(7);
+
+        const { where } = sessions.deleteMany.mock.calls[0][0]!;
+        expect(where?.userId).toBe(7);
+        expect(where?.expiresAt).toEqual({ lte: expect.any(Date) });
     });
 });
 
-describe('signToken', () => {
-    it('signs only the user id, with the configured lifetime', () => {
-        const payload = jwt.verify(signToken(7), SECRET) as jwt.JwtPayload;
+describe('getUserBySessionToken', () => {
+    it('looks up the hash of the token and returns the public user', async () => {
+        const inOneHour = new Date(Date.now() + 60 * 60 * 1000);
+        sessions.findUnique.mockResolvedValue({ expiresAt: inOneHour, user: publicUser } as never);
 
-        expect(payload.sub).toBe('7');
-        expect(payload.exp! - payload.iat!).toBe(TOKEN_TTL_SECONDS);
-        expect(Object.keys(payload).sort()).toEqual(['exp', 'iat', 'sub']);
+        expect(await getUserBySessionToken('token-goc')).toEqual(publicUser);
+        const { where, select } = sessions.findUnique.mock.calls[0][0];
+        expect(where).toEqual({ tokenHash: sha256('token-goc') });
+        expect(select?.user).not.toHaveProperty('select.passwordHash');
+    });
+
+    it('returns null when the session does not exist', async () => {
+        sessions.findUnique.mockResolvedValue(null);
+
+        expect(await getUserBySessionToken('khong-co')).toBeNull();
+    });
+
+    it('returns null when the session has expired', async () => {
+        const justExpired = new Date(Date.now() - 1000);
+        sessions.findUnique.mockResolvedValue({ expiresAt: justExpired, user: publicUser } as never);
+
+        expect(await getUserBySessionToken('token-goc')).toBeNull();
     });
 });
 
-describe('verifyToken', () => {
-    it('returns the user id for a token it signed', () => {
-        expect(verifyToken(signToken(7))).toBe(7);
-    });
+describe('deleteSession', () => {
+    it('deletes only the session matching the token hash', async () => {
+        await deleteSession('token-goc');
 
-    it.each([
-        ['an empty string', () => ''],
-        ['garbage', () => 'abc'],
-        ['a tampered token', () => `${signToken(7)}x`],
-        ['an expired token', () => jwt.sign({}, SECRET, { subject: '7', expiresIn: -10 })],
-        ['another secret', () => jwt.sign({}, 'other-secret', { subject: '7' })],
-        ['an unsigned token', () => jwt.sign({ sub: '7' }, '', { algorithm: 'none' })],
-        ['another algorithm', () => jwt.sign({}, SECRET, { subject: '7', algorithm: 'HS512' })],
-        ['a missing subject', () => jwt.sign({}, SECRET)],
-        ['a non-numeric subject', () => jwt.sign({}, SECRET, { subject: 'abc' })],
-        ['a non-positive subject', () => jwt.sign({}, SECRET, { subject: '0' })],
-    ])('returns null for %s', (_name, createToken) => {
-        expect(verifyToken(createToken())).toBeNull();
+        expect(sessions.deleteMany).toHaveBeenCalledWith({ where: { tokenHash: sha256('token-goc') } });
     });
 });

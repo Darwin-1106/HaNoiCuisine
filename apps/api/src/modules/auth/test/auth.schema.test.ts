@@ -16,7 +16,7 @@ describe('registerBody', () => {
         expect(registerBody.parse({ ...validRegister, role: 'ADMIN' })).toEqual(validRegister);
     });
 
-    it.each([8, 72])('accepts a password of %i characters', (length) => {
+    it.each([8, 128])('accepts a password of %i characters', (length) => {
         expect(registerBody.safeParse({ ...validRegister, password: 'a'.repeat(length) }).success).toBe(true);
     });
 
@@ -24,7 +24,7 @@ describe('registerBody', () => {
         { email: 'not-an-email' },
         { email: `${'a'.repeat(200)}@example.com` },
         { password: 'a'.repeat(7) },
-        { password: 'a'.repeat(73) },
+        { password: 'a'.repeat(129) },
         { name: '   ' },
         { name: 'a'.repeat(101) },
     ])('rejects %o', (override) => {
@@ -50,7 +50,7 @@ describe('loginBody', () => {
 
     it.each([
         { email: 'an@example.com', password: '' },
-        { email: 'an@example.com', password: 'a'.repeat(73) },
+        { email: 'an@example.com', password: 'a'.repeat(129) },
         { email: 'not-an-email', password: 'matkhau123' },
     ])('rejects %o', (body) => {
         expect(loginBody.safeParse(body).success).toBe(false);
