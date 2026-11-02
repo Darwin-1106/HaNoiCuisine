@@ -2,6 +2,7 @@
 import express, { type NextFunction, type Request, type Response } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
 import { requireEnv } from './config/env.js';
 import { articleRouter } from './modules/articles/routes/article.routes.js';
 import { authRouter } from './modules/auth/routes/auth.routes.js';
@@ -14,6 +15,15 @@ import { seasonRouter } from './modules/seasons/routes/season.routes.js';
 export function createApp() {
     const app = express();
 
+    const isProduction = process.env.NODE_ENV === 'production';
+    app.use(
+        helmet({
+            strictTransportSecurity: isProduction ? undefined : false,
+            contentSecurityPolicy: {
+                directives: { upgradeInsecureRequests: isProduction ? [] : null },
+            },
+        }),
+    );
     app.use(cors({ origin: requireEnv('CORS_ORIGIN'), credentials: true }));
     app.use(express.json());
     app.use(cookieParser());
