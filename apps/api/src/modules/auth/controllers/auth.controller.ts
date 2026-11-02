@@ -1,7 +1,7 @@
 // Auth controller: validate request, call service, manage the auth cookie
 import type { CookieOptions, Request, Response } from 'express';
 import { z } from 'zod';
-import { AUTH_COOKIE } from '../../../middlewares/require-auth.js';
+import { AUTH_COOKIE, readAuthCookie } from '../../../middlewares/require-auth.js';
 import { loginBody, registerBody } from '../schemas/auth.schema.js';
 import * as authService from '../services/auth.service.js';
 
@@ -12,11 +12,9 @@ const cookieOptions: CookieOptions = {
     path: '/',
 };
 
-function setAuthCookie(res: Response, userId: number) {
-    res.cookie(AUTH_COOKIE, authService.signToken(userId), {
-        ...cookieOptions,
-        maxAge: authService.TOKEN_TTL_SECONDS * 1000,
-    });
+async function startSession(res: Response, userId: number) {
+    const token = await authService.createSession(userId);
+    res.cookie(AUTH_COOKIE, token, { ...cookieOptions, maxAge: authService.SESSION_TTL_SECONDS * 1000 });
 }
 
 export async function register(req: Request, res: Response) {
@@ -32,7 +30,7 @@ export async function register(req: Request, res: Response) {
         return;
     }
 
-    setAuthCookie(res, user.id);
+    await startSession(res, user.id);
     res.status(201).json({ user });
 }
 
@@ -49,11 +47,15 @@ export async function login(req: Request, res: Response) {
         return;
     }
 
-    setAuthCookie(res, user.id);
+    await startSession(res, user.id);
     res.json({ user });
 }
 
-export function logout(_req: Request, res: Response) {
+export async function logout(req: Request, res: Response) {
+    const token = readAuthCookie(req);
+    if (token) {
+        await authService.deleteSession(token);
+    }
     res.clearCookie(AUTH_COOKIE, cookieOptions);
     res.status(204).end();
 }

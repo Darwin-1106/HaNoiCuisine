@@ -5,12 +5,12 @@ import { createApp } from '../../../app.js';
 import * as authService from '../services/auth.service.js';
 
 vi.mock('../services/auth.service.js', () => ({
-    TOKEN_TTL_SECONDS: 604800,
+    SESSION_TTL_SECONDS: 604800,
     register: vi.fn(),
     login: vi.fn(),
-    getUserById: vi.fn(),
-    signToken: vi.fn(),
-    verifyToken: vi.fn(),
+    createSession: vi.fn(),
+    getUserBySessionToken: vi.fn(),
+    deleteSession: vi.fn(),
 }));
 
 const service = vi.mocked(authService);
@@ -31,15 +31,15 @@ afterEach(() => {
 describe('POST /api/v1/auth/register', () => {
     it('creates the user, returns 201 and sets a protected cookie', async () => {
         service.register.mockResolvedValue(user);
-        service.signToken.mockReturnValue('signed-token');
+        service.createSession.mockResolvedValue('session-token');
 
         const res = await request(app).post('/api/v1/auth/register').send(registerData);
 
         expect(res.status).toBe(201);
         expect(res.body).toEqual({ user });
-        expect(service.signToken).toHaveBeenCalledWith(user.id);
+        expect(service.createSession).toHaveBeenCalledWith(user.id);
         const cookie = authCookie(res);
-        expect(cookie).toContain('token=signed-token');
+        expect(cookie).toContain('token=session-token');
         expect(cookie).toContain('HttpOnly');
         expect(cookie).toContain('SameSite=Lax');
         expect(cookie).toContain('Path=/');
@@ -48,7 +48,7 @@ describe('POST /api/v1/auth/register', () => {
 
     it('passes only the validated fields to the service', async () => {
         service.register.mockResolvedValue(user);
-        service.signToken.mockReturnValue('signed-token');
+        service.createSession.mockResolvedValue('session-token');
 
         await request(app)
             .post('/api/v1/auth/register')
@@ -93,13 +93,13 @@ describe('POST /api/v1/auth/register', () => {
 describe('POST /api/v1/auth/login', () => {
     it('returns the user and sets the cookie when the credentials are valid', async () => {
         service.login.mockResolvedValue(user);
-        service.signToken.mockReturnValue('signed-token');
+        service.createSession.mockResolvedValue('session-token');
 
         const res = await request(app).post('/api/v1/auth/login').send(credentials);
 
         expect(res.status).toBe(200);
         expect(res.body).toEqual({ user });
-        expect(authCookie(res)).toContain('token=signed-token');
+        expect(authCookie(res)).toContain('token=session-token');
     });
 
     it('returns 401 without a cookie when the credentials are wrong', async () => {
@@ -141,63 +141,64 @@ describe('POST /api/v1/auth/login', () => {
 });
 
 describe('POST /api/v1/auth/logout', () => {
-    it('clears the cookie and returns 204', async () => {
-        const res = await request(app).post('/api/v1/auth/logout');
+    it('deletes the session on the server, clears the cookie and returns 204', async () => {
+        const res = await request(app).post('/api/v1/auth/logout').set('Cookie', 'token=session-token');
 
         expect(res.status).toBe(204);
+        expect(service.deleteSession).toHaveBeenCalledWith('session-token');
         const cookie = authCookie(res);
         expect(cookie).toContain('token=;');
         expect(cookie).toContain('Expires=Thu, 01 Jan 1970');
     });
+
+    it('still clears the cookie when there is no session', async () => {
+        const res = await request(app).post('/api/v1/auth/logout');
+
+        expect(res.status).toBe(204);
+        expect(service.deleteSession).not.toHaveBeenCalled();
+        expect(authCookie(res)).toContain('token=;');
+    });
 });
 
 describe('GET /api/v1/auth/me', () => {
-    it('returns the current user when the token is valid', async () => {
-        service.verifyToken.mockReturnValue(user.id);
-        service.getUserById.mockResolvedValue(user);
+    it('returns the current user when the session is valid', async () => {
+        service.getUserBySessionToken.mockResolvedValue(user);
 
-        const res = await request(app).get('/api/v1/auth/me').set('Cookie', 'token=valid-token');
+        const res = await request(app).get('/api/v1/auth/me').set('Cookie', 'token=session-token');
 
         expect(res.status).toBe(200);
         expect(res.body).toEqual({ user });
-        expect(service.verifyToken).toHaveBeenCalledWith('valid-token');
-        expect(service.getUserById).toHaveBeenCalledWith(user.id);
+        expect(service.getUserBySessionToken).toHaveBeenCalledWith('session-token');
     });
 
     it('returns 401 without a cookie', async () => {
-        service.verifyToken.mockReturnValue(null);
-
         const res = await request(app).get('/api/v1/auth/me');
 
         expect(res.status).toBe(401);
         expect(res.body).toEqual({ error: 'Bạn chưa đăng nhập' });
-        expect(service.getUserById).not.toHaveBeenCalled();
+        expect(service.getUserBySessionToken).not.toHaveBeenCalled();
     });
 
-    it('returns 401 when the token is invalid', async () => {
-        service.verifyToken.mockReturnValue(null);
+    it('returns 401 when the session is unknown or expired', async () => {
+        service.getUserBySessionToken.mockResolvedValue(null);
 
         const res = await request(app).get('/api/v1/auth/me').set('Cookie', 'token=bad-token');
 
         expect(res.status).toBe(401);
-        expect(service.getUserById).not.toHaveBeenCalled();
     });
 
-    it('returns 401 when the user no longer exists', async () => {
-        service.verifyToken.mockReturnValue(user.id);
-        service.getUserById.mockResolvedValue(null);
-
-        const res = await request(app).get('/api/v1/auth/me').set('Cookie', 'token=valid-token');
+    it('returns 401, not 500, when the cookie parses to an object', async () => {
+        const res = await request(app).get('/api/v1/auth/me').set('Cookie', 'token=j:{"a":1}');
 
         expect(res.status).toBe(401);
+        expect(service.getUserBySessionToken).not.toHaveBeenCalled();
     });
 
-    it('returns 500 when the user lookup fails', async () => {
+    it('returns 500 when the session lookup fails', async () => {
         vi.spyOn(console, 'error').mockImplementation(() => undefined);
-        service.verifyToken.mockReturnValue(user.id);
-        service.getUserById.mockRejectedValue(new Error('database down'));
+        service.getUserBySessionToken.mockRejectedValue(new Error('database down'));
 
-        const res = await request(app).get('/api/v1/auth/me').set('Cookie', 'token=valid-token');
+        const res = await request(app).get('/api/v1/auth/me').set('Cookie', 'token=session-token');
 
         expect(res.status).toBe(500);
     });
@@ -211,7 +212,7 @@ describe('Secure cookie attribute', () => {
         const { createApp: createFreshApp } = await import('../../../app.js');
         const freshService = vi.mocked(await import('../services/auth.service.js'));
         freshService.login.mockResolvedValue(user);
-        freshService.signToken.mockReturnValue('signed-token');
+        freshService.createSession.mockResolvedValue('session-token');
 
         return request(createFreshApp()).post('/api/v1/auth/login').send(credentials);
     }

@@ -1,6 +1,6 @@
 // Seed the database with sample data and an admin account for local development
 import { PrismaClient, TimeSlot, Difficulty } from '@prisma/client';
-import bcrypt from 'bcryptjs';
+import { hashPassword } from '../src/modules/auth/services/password.js';
 import { requireEnv } from '../src/config/env.js';
 
 try {
@@ -244,14 +244,15 @@ async function main() {
     }
 
     // 7. Tài khoản admin
+    const adminPasswordHash = await hashPassword(adminPassword);
     const admin = await prisma.user.upsert({
         where: { email: adminEmail },
-        update: {},
+        update: { passwordHash: adminPasswordHash },
         create: {
             email: adminEmail,
             name: 'Admin',
             role: 'ADMIN',
-            passwordHash: await bcrypt.hash(adminPassword, 10),
+            passwordHash: adminPasswordHash,
         },
     });
     // 8. Cẩm nang
