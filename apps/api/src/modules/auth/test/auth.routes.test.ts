@@ -1,6 +1,6 @@
 // Auth routes tests: status codes, cookie attributes and requireAuth with the service mocked
 import request from 'supertest';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../../../app.js';
 import * as authService from '../services/auth.service.js';
 
@@ -13,8 +13,8 @@ vi.mock('../services/auth.service.js', () => ({
     deleteSession: vi.fn(),
 }));
 
-const service = vi.mocked(authService);
-const app = createApp();
+let service = vi.mocked(authService);
+let app = createApp();
 const user = { id: 1, email: 'an@example.com', name: 'An', role: 'USER' as const };
 const registerData = { email: 'an@example.com', password: 'matkhau123', name: 'An' };
 const credentials = { email: 'an@example.com', password: 'matkhau123' };
@@ -23,6 +23,14 @@ function authCookie(res: request.Response) {
     const cookies = res.headers['set-cookie'] as unknown as string[] | undefined;
     return cookies?.find((cookie) => cookie.startsWith('token='));
 }
+
+beforeEach(async () => {
+    vi.resetModules();
+
+    const { createApp: createFreshApp } = await import('../../../app.js');
+    service = vi.mocked(await import('../services/auth.service.js'));
+    app = createFreshApp();
+});
 
 afterEach(() => {
     vi.unstubAllEnvs();
@@ -237,5 +245,69 @@ describe('Secure cookie attribute', () => {
         const res = await request(createFreshApp()).post('/api/v1/auth/logout');
 
         expect(authCookie(res)).toContain('Secure');
+    });
+});
+
+describe('Auth rate limits', () => {
+    it('blocks the eleventh login request before calling the service', async () => {
+        service.login.mockResolvedValue(null);
+
+        for (let attempt = 0; attempt < 10; attempt++) {
+            const res = await request(app).post('/api/v1/auth/login').send(credentials);
+
+            expect(res.status).toBe(401);
+        }
+
+        const blocked = await request(app).post('/api/v1/auth/login').send(credentials);
+
+        expect(blocked.status).toBe(429);
+        expect(blocked.body).toEqual({
+            error: 'Bạn đã đăng nhập quá nhiều lần. Vui lòng thử lại sau.',
+        });
+        expect(Number(blocked.headers['retry-after'])).toBeGreaterThan(0);
+        expect(blocked.headers['ratelimit']).toBeDefined();
+        expect(authCookie(blocked)).toBeUndefined();
+        expect(service.login).toHaveBeenCalledTimes(10);
+        expect(service.createSession).not.toHaveBeenCalled();
+    });
+
+    it('blocks the sixth registration request before calling the service', async () => {
+        service.register.mockResolvedValue(null);
+
+        for (let attempt = 0; attempt < 5; attempt++) {
+            const res = await request(app).post('/api/v1/auth/register').send(registerData);
+
+            expect(res.status).toBe(409);
+        }
+
+        const blocked = await request(app).post('/api/v1/auth/register').send(registerData);
+
+        expect(blocked.status).toBe(429);
+        expect(blocked.body).toEqual({
+            error: 'Bạn đã đăng kí quá nhiều lần, vui lòng thử lại sau.',
+        });
+        expect(Number(blocked.headers['retry-after'])).toBeGreaterThan(0);
+        expect(authCookie(blocked)).toBeUndefined();
+        expect(service.register).toHaveBeenCalledTimes(5);
+        expect(service.createSession).not.toHaveBeenCalled();
+    });
+
+    it('keeps registration and logout available when login is rate limited', async () => {
+        service.login.mockResolvedValue(null);
+        service.register.mockResolvedValue(user);
+        service.createSession.mockResolvedValue('session-token');
+
+        for (let attempt = 0; attempt < 10; attempt++) {
+            await request(app).post('/api/v1/auth/login').send(credentials);
+        }
+
+        const blocked = await request(app).post('/api/v1/auth/login').send(credentials);
+        expect(blocked.status).toBe(429);
+
+        const registered = await request(app).post('/api/v1/auth/register').send(registerData);
+        expect(registered.status).toBe(201);
+
+        const loggedOut = await request(app).post('/api/v1/auth/logout');
+        expect(loggedOut.status).toBe(204);
     });
 });
