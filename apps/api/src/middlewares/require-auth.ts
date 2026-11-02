@@ -1,6 +1,6 @@
-// Require a logged-in user: read the JWT cookie and attach the current user to the request
+// Require a logged-in user: read the session cookie and attach the current user to the request
 import type { NextFunction, Request, Response } from 'express';
-import { getUserById, verifyToken, type PublicUser } from '../modules/auth/services/auth.service.js';
+import { getUserBySessionToken, type PublicUser } from '../modules/auth/services/auth.service.js';
 
 declare module 'express-serve-static-core' {
     interface Request {
@@ -10,13 +10,19 @@ declare module 'express-serve-static-core' {
 
 export const AUTH_COOKIE = 'token';
 
+export function readAuthCookie(req: Request): string | null {
+    const token: unknown = req.cookies[AUTH_COOKIE];
+    return typeof token === 'string' && token ? token : null;
+}
+
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
-    const userId = verifyToken(req.cookies[AUTH_COOKIE] ?? '');
-    const user = userId && (await getUserById(userId));
+    const token = readAuthCookie(req);
+    const user = token && (await getUserBySessionToken(token));
     if (!user) {
         res.status(401).json({ error: 'Bạn chưa đăng nhập' });
         return;
     }
+
     req.user = user;
     next();
 }

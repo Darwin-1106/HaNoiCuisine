@@ -201,7 +201,7 @@ model ItineraryStop {
 model User {
   id           Int        @id @default(autoincrement())
   email        String     @unique @db.VarChar(200)
-  passwordHash String     @db.VarChar(100)
+  passwordHash String     @db.VarChar(255)
   name         String     @db.VarChar(100)
   role         Role       @default(USER)
   createdAt    DateTime   @default(now())
@@ -209,6 +209,19 @@ model User {
   articles  Article[]
   reviews   Review[]
   favorites Favorite[]
+  sessions  Session[]
+}
+
+model Session {
+  id        Int      @id @default(autoincrement())
+  tokenHash String   @unique @db.Char(64)
+  userId    Int
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Review {

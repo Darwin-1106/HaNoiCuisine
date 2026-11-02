@@ -7,7 +7,6 @@ export default defineConfig({
         include: ['src/**/*.test.ts'],
         env: {
             CORS_ORIGIN: 'test-origin',
-            JWT_SECRET: 'test-secret',
         },
         mockReset: true,
         restoreMocks: true,
