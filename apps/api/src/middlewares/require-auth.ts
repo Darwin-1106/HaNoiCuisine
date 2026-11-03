@@ -8,7 +8,7 @@ declare module 'express-serve-static-core' {
     }
 }
 
-export const AUTH_COOKIE = 'token';
+export const AUTH_COOKIE = process.env.NODE_ENV === 'production' ? '__Host-token' : 'token';
 
 export function readAuthCookie(req: Request): string | null {
     const token: unknown = req.cookies[AUTH_COOKIE];

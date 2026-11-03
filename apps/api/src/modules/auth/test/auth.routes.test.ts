@@ -19,9 +19,9 @@ const user = { id: 1, email: 'an@example.com', name: 'An', role: 'USER' as const
 const registerData = { email: 'an@example.com', password: 'matkhau123', name: 'An' };
 const credentials = { email: 'an@example.com', password: 'matkhau123' };
 
-function authCookie(res: request.Response) {
+function authCookie(res: request.Response, name = 'token') {
     const cookies = res.headers['set-cookie'] as unknown as string[] | undefined;
-    return cookies?.find((cookie) => cookie.startsWith('token='));
+    return cookies?.find((cookie) => cookie.startsWith(`${name}=`));
 }
 
 beforeEach(async () => {
@@ -212,42 +212,93 @@ describe('GET /api/v1/auth/me', () => {
     });
 });
 
-describe('Secure cookie attribute', () => {
-    // cookieOptions reads NODE_ENV when the controller is first loaded, so each case needs a fresh import
-    async function loginWithNodeEnv(nodeEnv: string) {
-        vi.stubEnv('NODE_ENV', nodeEnv);
+describe('Auth cookies by environment', () => {
+    it.each(['login', 'register'] as const)('sets a protected host cookie on %s in production', async (action) => {
+        vi.stubEnv('NODE_ENV', 'production');
+        vi.resetModules();
+        const { createApp: createFreshApp } = await import('../../../app.js');
+        const freshService = vi.mocked(await import('../services/auth.service.js'));
+        freshService[action].mockResolvedValue(user);
+        freshService.createSession.mockResolvedValue('session-token');
+
+        const res = await request(createFreshApp())
+            .post(`/api/v1/auth/${action}`)
+            .send(action === 'login' ? credentials : registerData);
+        const cookie = authCookie(res, '__Host-token');
+
+        expect(res.status).toBe(action === 'login' ? 200 : 201);
+        expect(cookie).toContain('__Host-token=session-token;');
+        expect(cookie).toContain('Secure');
+        expect(cookie).toContain('HttpOnly');
+        expect(cookie).toContain('SameSite=Lax');
+        expect(cookie).toContain('Path=/');
+        expect(cookie).not.toContain('Domain=');
+        expect(authCookie(res)).toBeUndefined();
+    });
+
+    it('keeps the unprefixed cookie outside production', async () => {
+        vi.stubEnv('NODE_ENV', 'development');
         vi.resetModules();
         const { createApp: createFreshApp } = await import('../../../app.js');
         const freshService = vi.mocked(await import('../services/auth.service.js'));
         freshService.login.mockResolvedValue(user);
         freshService.createSession.mockResolvedValue('session-token');
 
-        return request(createFreshApp()).post('/api/v1/auth/login').send(credentials);
-    }
+        const res = await request(createFreshApp()).post('/api/v1/auth/login').send(credentials);
 
-    it('is set in production', async () => {
-        const res = await loginWithNodeEnv('production');
-
-        expect(authCookie(res)).toContain('Secure');
-    });
-
-    it('is not set outside production', async () => {
-        const res = await loginWithNodeEnv('development');
-
+        expect(res.status).toBe(200);
+        expect(authCookie(res)).toContain('token=session-token;');
         expect(authCookie(res)).not.toContain('Secure');
+        expect(authCookie(res, '__Host-token')).toBeUndefined();
     });
 
-    it('is also set when the cookie is cleared in production', async () => {
+    it('reads and clears the host cookie on logout in production', async () => {
         vi.stubEnv('NODE_ENV', 'production');
         vi.resetModules();
         const { createApp: createFreshApp } = await import('../../../app.js');
+        const freshService = vi.mocked(await import('../services/auth.service.js'));
 
-        const res = await request(createFreshApp()).post('/api/v1/auth/logout');
+        const res = await request(createFreshApp())
+            .post('/api/v1/auth/logout')
+            .set('Cookie', 'token=legacy-token; __Host-token=session-token');
+        const cookie = authCookie(res, '__Host-token');
 
-        expect(authCookie(res)).toContain('Secure');
+        expect(res.status).toBe(204);
+        expect(freshService.deleteSession).toHaveBeenCalledExactlyOnceWith('session-token');
+        expect(cookie).toContain('__Host-token=;');
+        expect(cookie).toContain('Secure');
+        expect(cookie).toContain('HttpOnly');
+        expect(cookie).toContain('SameSite=Lax');
+        expect(cookie).toContain('Path=/');
+        expect(cookie).toContain('Expires=Thu, 01 Jan 1970');
+        expect(cookie).not.toContain('Domain=');
+        expect(authCookie(res)).toBeUndefined();
+    });
+
+    it.each([
+        ['__Host-token=session-token', 200],
+        ['token=legacy-token; __Host-token=session-token', 200],
+        ['token=legacy-token', 401],
+        ['__Host-token=j:{"a":1}', 401],
+    ] as const)('validates production cookies: %s', async (cookie, status) => {
+        vi.stubEnv('NODE_ENV', 'production');
+        vi.resetModules();
+        const { createApp: createFreshApp } = await import('../../../app.js');
+        const freshService = vi.mocked(await import('../services/auth.service.js'));
+        freshService.getUserBySessionToken.mockResolvedValue(user);
+
+        const res = await request(createFreshApp()).get('/api/v1/auth/me').set('Cookie', cookie);
+
+        expect(res.status).toBe(status);
+        if (status === 200) {
+            expect(res.body).toEqual({ user });
+            expect(freshService.getUserBySessionToken).toHaveBeenCalledExactlyOnceWith('session-token');
+        } else {
+            expect(res.body).toEqual({ error: 'Bạn chưa đăng nhập' });
+            expect(freshService.getUserBySessionToken).not.toHaveBeenCalled();
+        }
     });
 });
-
 describe('Auth rate limits', () => {
     it('blocks the eleventh login request before calling the service', async () => {
         service.login.mockResolvedValue(null);
