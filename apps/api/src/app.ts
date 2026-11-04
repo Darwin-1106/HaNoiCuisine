@@ -11,6 +11,7 @@ import { itineraryRouter } from './modules/itineraries/routes/itinerary.routes.j
 import { recipeRouter } from './modules/recipes/routes/recipe.routes.js';
 import { restaurantRouter } from './modules/restaurants/routes/restaurant.routes.js';
 import { seasonRouter } from './modules/seasons/routes/season.routes.js';
+import { requireCsrf } from './middlewares/require-csrf.js';
 
 export function createApp() {
     const app = express();
@@ -25,6 +26,7 @@ export function createApp() {
         }),
     );
     app.use(cors({ origin: requireEnv('CORS_ORIGIN'), credentials: true }));
+    app.use(requireCsrf);
     app.use(express.json());
     app.use(cookieParser());
 

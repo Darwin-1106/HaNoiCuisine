@@ -26,6 +26,7 @@ describe('Security headers', () => {
         const res = await request(createApp())
             .post('/api/v1/auth/login')
             .set('Origin', 'test-origin')
+            .set('X-CSRF-Protection', '1')
             .set('Content-Type', 'application/json')
             .send('{bad json');
 
@@ -53,5 +54,42 @@ describe('Security headers', () => {
         expect(res.headers['strict-transport-security']).toBeUndefined();
         expect(res.headers['content-security-policy']).not.toContain('upgrade-insecure-requests');
         expect(res.headers['x-content-type-options']).toBe('nosniff');
+    });
+});
+
+describe('Global CSRF protection', () => {
+    it.each(['post', 'put', 'patch', 'delete'] as const)(
+        'protects %s requests outside the auth module',
+        async (method) => {
+            const app = createApp();
+            const rejected = await request(app)[method]('/missing-route');
+            expect(rejected.status).toBe(403);
+            expect(rejected.body).toEqual({ error: 'Yêu cầu không được phép' });
+            expect(rejected.headers['x-content-type-options']).toBe('nosniff');
+
+            const allowed = await request(app)
+                [method]('/missing-route')
+                .set('Origin', 'test-origin')
+                .set('X-CSRF-Protection', '1');
+            expect(allowed.status).toBe(404);
+        },
+    );
+
+    it('allows HEAD requests without CSRF headers', async () => {
+        const res = await request(createApp()).head('/api/v1/health');
+        expect(res.status).toBe(200);
+    });
+
+    it('preserves CORS preflight for the trusted frontend', async () => {
+        const res = await request(createApp())
+            .options('/api/v1/auth/login')
+            .set('Origin', 'test-origin')
+            .set('Access-Control-Request-Method', 'POST')
+            .set('Access-Control-Request-Headers', 'content-type,x-csrf-protection');
+
+        expect(res.status).toBe(204);
+        expect(res.headers['access-control-allow-origin']).toBe('test-origin');
+        expect(res.headers['access-control-allow-credentials']).toBe('true');
+        expect(res.headers['access-control-allow-headers']).toContain('x-csrf-protection');
     });
 });
