@@ -41,7 +41,11 @@ describe('POST /api/v1/auth/register', () => {
         service.register.mockResolvedValue(user);
         service.createSession.mockResolvedValue('session-token');
 
-        const res = await request(app).post('/api/v1/auth/register').send(registerData);
+        const res = await request(app)
+            .post('/api/v1/auth/register')
+            .set('Origin', 'test-origin')
+            .set('X-CSRF-Protection', '1')
+            .send(registerData);
 
         expect(res.status).toBe(201);
         expect(res.body).toEqual({ user });
@@ -60,6 +64,8 @@ describe('POST /api/v1/auth/register', () => {
 
         await request(app)
             .post('/api/v1/auth/register')
+            .set('Origin', 'test-origin')
+            .set('X-CSRF-Protection', '1')
             .send({ ...registerData, email: ' An@Example.COM', role: 'ADMIN' });
 
         expect(service.register).toHaveBeenCalledWith(registerData);
@@ -68,7 +74,11 @@ describe('POST /api/v1/auth/register', () => {
     it('returns 409 without a cookie when the email is taken', async () => {
         service.register.mockResolvedValue(null);
 
-        const res = await request(app).post('/api/v1/auth/register').send(registerData);
+        const res = await request(app)
+            .post('/api/v1/auth/register')
+            .set('Origin', 'test-origin')
+            .set('X-CSRF-Protection', '1')
+            .send(registerData);
 
         expect(res.status).toBe(409);
         expect(res.body).toEqual({ error: 'Email đã được sử dụng' });
@@ -80,6 +90,8 @@ describe('POST /api/v1/auth/register', () => {
         async (override) => {
             const res = await request(app)
                 .post('/api/v1/auth/register')
+                .set('Origin', 'test-origin')
+                .set('X-CSRF-Protection', '1')
                 .send({ ...registerData, ...override });
 
             expect(res.status).toBe(400);
@@ -91,6 +103,8 @@ describe('POST /api/v1/auth/register', () => {
     it('never echoes the password in validation errors', async () => {
         const res = await request(app)
             .post('/api/v1/auth/register')
+            .set('Origin', 'test-origin')
+            .set('X-CSRF-Protection', '1')
             .send({ ...registerData, email: 'not-an-email', password: 'mat-khau-bi-mat' });
 
         expect(res.status).toBe(400);
@@ -103,7 +117,11 @@ describe('POST /api/v1/auth/login', () => {
         service.login.mockResolvedValue(user);
         service.createSession.mockResolvedValue('session-token');
 
-        const res = await request(app).post('/api/v1/auth/login').send(credentials);
+        const res = await request(app)
+            .post('/api/v1/auth/login')
+            .set('Origin', 'test-origin')
+            .set('X-CSRF-Protection', '1')
+            .send(credentials);
 
         expect(res.status).toBe(200);
         expect(res.body).toEqual({ user });
@@ -113,7 +131,11 @@ describe('POST /api/v1/auth/login', () => {
     it('returns 401 without a cookie when the credentials are wrong', async () => {
         service.login.mockResolvedValue(null);
 
-        const res = await request(app).post('/api/v1/auth/login').send(credentials);
+        const res = await request(app)
+            .post('/api/v1/auth/login')
+            .set('Origin', 'test-origin')
+            .set('X-CSRF-Protection', '1')
+            .send(credentials);
 
         expect(res.status).toBe(401);
         expect(res.body).toEqual({ error: 'Email hoặc mật khẩu không đúng' });
@@ -121,7 +143,10 @@ describe('POST /api/v1/auth/login', () => {
     });
 
     it('returns 400 when the body is missing', async () => {
-        const res = await request(app).post('/api/v1/auth/login');
+        const res = await request(app)
+            .post('/api/v1/auth/login')
+            .set('Origin', 'test-origin')
+            .set('X-CSRF-Protection', '1');
 
         expect(res.status).toBe(400);
         expect(service.login).not.toHaveBeenCalled();
@@ -130,6 +155,8 @@ describe('POST /api/v1/auth/login', () => {
     it('returns 400, not 500, for malformed JSON', async () => {
         const res = await request(app)
             .post('/api/v1/auth/login')
+            .set('Origin', 'test-origin')
+            .set('X-CSRF-Protection', '1')
             .set('Content-Type', 'application/json')
             .send('{bad json');
 
@@ -141,7 +168,11 @@ describe('POST /api/v1/auth/login', () => {
         vi.spyOn(console, 'error').mockImplementation(() => undefined);
         service.login.mockRejectedValue(new Error('database down'));
 
-        const res = await request(app).post('/api/v1/auth/login').send(credentials);
+        const res = await request(app)
+            .post('/api/v1/auth/login')
+            .set('Origin', 'test-origin')
+            .set('X-CSRF-Protection', '1')
+            .send(credentials);
 
         expect(res.status).toBe(500);
         expect(res.body).toEqual({ error: 'Lỗi máy chủ' });
@@ -150,7 +181,11 @@ describe('POST /api/v1/auth/login', () => {
 
 describe('POST /api/v1/auth/logout', () => {
     it('deletes the session on the server, clears the cookie and returns 204', async () => {
-        const res = await request(app).post('/api/v1/auth/logout').set('Cookie', 'token=session-token');
+        const res = await request(app)
+            .post('/api/v1/auth/logout')
+            .set('Origin', 'test-origin')
+            .set('X-CSRF-Protection', '1')
+            .set('Cookie', 'token=session-token');
 
         expect(res.status).toBe(204);
         expect(service.deleteSession).toHaveBeenCalledWith('session-token');
@@ -160,7 +195,10 @@ describe('POST /api/v1/auth/logout', () => {
     });
 
     it('still clears the cookie when there is no session', async () => {
-        const res = await request(app).post('/api/v1/auth/logout');
+        const res = await request(app)
+            .post('/api/v1/auth/logout')
+            .set('Origin', 'test-origin')
+            .set('X-CSRF-Protection', '1');
 
         expect(res.status).toBe(204);
         expect(service.deleteSession).not.toHaveBeenCalled();
@@ -223,6 +261,8 @@ describe('Auth cookies by environment', () => {
 
         const res = await request(createFreshApp())
             .post(`/api/v1/auth/${action}`)
+            .set('Origin', 'test-origin')
+            .set('X-CSRF-Protection', '1')
             .send(action === 'login' ? credentials : registerData);
         const cookie = authCookie(res, '__Host-token');
 
@@ -244,7 +284,11 @@ describe('Auth cookies by environment', () => {
         freshService.login.mockResolvedValue(user);
         freshService.createSession.mockResolvedValue('session-token');
 
-        const res = await request(createFreshApp()).post('/api/v1/auth/login').send(credentials);
+        const res = await request(createFreshApp())
+            .post('/api/v1/auth/login')
+            .set('Origin', 'test-origin')
+            .set('X-CSRF-Protection', '1')
+            .send(credentials);
 
         expect(res.status).toBe(200);
         expect(authCookie(res)).toContain('token=session-token;');
@@ -260,6 +304,8 @@ describe('Auth cookies by environment', () => {
 
         const res = await request(createFreshApp())
             .post('/api/v1/auth/logout')
+            .set('Origin', 'test-origin')
+            .set('X-CSRF-Protection', '1')
             .set('Cookie', 'token=legacy-token; __Host-token=session-token');
         const cookie = authCookie(res, '__Host-token');
 
@@ -304,12 +350,20 @@ describe('Auth rate limits', () => {
         service.login.mockResolvedValue(null);
 
         for (let attempt = 0; attempt < 10; attempt++) {
-            const res = await request(app).post('/api/v1/auth/login').send(credentials);
+            const res = await request(app)
+                .post('/api/v1/auth/login')
+                .set('Origin', 'test-origin')
+                .set('X-CSRF-Protection', '1')
+                .send(credentials);
 
             expect(res.status).toBe(401);
         }
 
-        const blocked = await request(app).post('/api/v1/auth/login').send(credentials);
+        const blocked = await request(app)
+            .post('/api/v1/auth/login')
+            .set('Origin', 'test-origin')
+            .set('X-CSRF-Protection', '1')
+            .send(credentials);
 
         expect(blocked.status).toBe(429);
         expect(blocked.body).toEqual({
@@ -326,12 +380,20 @@ describe('Auth rate limits', () => {
         service.register.mockResolvedValue(null);
 
         for (let attempt = 0; attempt < 5; attempt++) {
-            const res = await request(app).post('/api/v1/auth/register').send(registerData);
+            const res = await request(app)
+                .post('/api/v1/auth/register')
+                .set('Origin', 'test-origin')
+                .set('X-CSRF-Protection', '1')
+                .send(registerData);
 
             expect(res.status).toBe(409);
         }
 
-        const blocked = await request(app).post('/api/v1/auth/register').send(registerData);
+        const blocked = await request(app)
+            .post('/api/v1/auth/register')
+            .set('Origin', 'test-origin')
+            .set('X-CSRF-Protection', '1')
+            .send(registerData);
 
         expect(blocked.status).toBe(429);
         expect(blocked.body).toEqual({
@@ -349,16 +411,86 @@ describe('Auth rate limits', () => {
         service.createSession.mockResolvedValue('session-token');
 
         for (let attempt = 0; attempt < 10; attempt++) {
-            await request(app).post('/api/v1/auth/login').send(credentials);
+            await request(app)
+                .post('/api/v1/auth/login')
+                .set('Origin', 'test-origin')
+                .set('X-CSRF-Protection', '1')
+                .send(credentials);
         }
 
-        const blocked = await request(app).post('/api/v1/auth/login').send(credentials);
+        const blocked = await request(app)
+            .post('/api/v1/auth/login')
+            .set('Origin', 'test-origin')
+            .set('X-CSRF-Protection', '1')
+            .send(credentials);
         expect(blocked.status).toBe(429);
 
-        const registered = await request(app).post('/api/v1/auth/register').send(registerData);
+        const registered = await request(app)
+            .post('/api/v1/auth/register')
+            .set('Origin', 'test-origin')
+            .set('X-CSRF-Protection', '1')
+            .send(registerData);
         expect(registered.status).toBe(201);
 
-        const loggedOut = await request(app).post('/api/v1/auth/logout');
+        const loggedOut = await request(app)
+            .post('/api/v1/auth/logout')
+            .set('Origin', 'test-origin')
+            .set('X-CSRF-Protection', '1');
         expect(loggedOut.status).toBe(204);
+    });
+});
+
+describe('CSRF protection', () => {
+    it.each(['register', 'login', 'logout'])(
+        'rejects invalid CSRF headers on %s before calling the service',
+        async (action) => {
+            const invalidHeaders = [
+                {},
+                { Origin: 'test-origin' },
+                { 'X-CSRF-Protection': '1' },
+                { Origin: 'untrusted-origin', 'X-CSRF-Protection': '1' },
+                { Origin: 'test-origin.attacker', 'X-CSRF-Protection': '1' },
+                { Origin: 'null', 'X-CSRF-Protection': '1' },
+                { Origin: 'test-origin', 'X-CSRF-Protection': 'wrong' },
+            ];
+
+            for (const headers of invalidHeaders) {
+                const res = await request(app)
+                    .post(`/api/v1/auth/${action}`)
+                    .set(headers)
+                    .set('Cookie', 'token=session-token')
+                    .send(action === 'register' ? registerData : credentials);
+
+                expect(res.status).toBe(403);
+                expect(res.body).toEqual({ error: 'Yêu cầu không được phép' });
+                expect(res.headers['set-cookie']).toBeUndefined();
+            }
+
+            expect(service.register).not.toHaveBeenCalled();
+            expect(service.login).not.toHaveBeenCalled();
+            expect(service.createSession).not.toHaveBeenCalled();
+            expect(service.deleteSession).not.toHaveBeenCalled();
+        },
+    );
+
+    it('rejects forged requests before JSON parsing and login rate limiting', async () => {
+        for (let attempt = 0; attempt < 11; attempt++) {
+            const res = await request(app)
+                .post('/api/v1/auth/login')
+                .set('Content-Type', 'application/json')
+                .send('{bad json');
+
+            expect(res.status).toBe(403);
+        }
+
+        service.login.mockResolvedValue(null);
+        const res = await request(app)
+            .post('/api/v1/auth/login')
+            .set('Origin', 'test-origin')
+            .set('X-CSRF-Protection', '1')
+            .send(credentials);
+
+        expect(res.status).toBe(401);
+        expect(service.login).toHaveBeenCalledExactlyOnceWith(credentials);
     });
 });
