@@ -12,6 +12,7 @@ import { recipeRouter } from './modules/recipes/routes/recipe.routes.js';
 import { restaurantRouter } from './modules/restaurants/routes/restaurant.routes.js';
 import { seasonRouter } from './modules/seasons/routes/season.routes.js';
 import { requireCsrf } from './middlewares/require-csrf.js';
+import { reviewRouter } from './modules/reviews/routes/review.routes.js';
 
 export function createApp() {
     const app = express();
@@ -33,6 +34,7 @@ export function createApp() {
     app.get('/api/v1/health', (_req, res) => {
         res.json({ status: 'ok' });
     });
+    app.use('/api/v1/restaurants', reviewRouter);
     app.use('/api/v1/restaurants', restaurantRouter);
     app.use('/api/v1/dishes', dishRouter);
     app.use('/api/v1/seasons', seasonRouter);
