@@ -47,11 +47,10 @@ describe('POST /api/v1/restaurants/:slug/reviews', () => {
         expect(res.body).toEqual({
             review: { ...review, createdAt: review.createdAt.toISOString() },
         });
-        expect(service.createReview).toHaveBeenCalledExactlyOnceWith(
-            'pho-thin',
-            user.id,
-            { rating: 5, comment: 'Ngon' },
-        );
+        expect(service.createReview).toHaveBeenCalledExactlyOnceWith('pho-thin', user.id, {
+            rating: 5,
+            comment: 'Ngon',
+        });
     });
 
     it('rejects requests without a session', async () => {
