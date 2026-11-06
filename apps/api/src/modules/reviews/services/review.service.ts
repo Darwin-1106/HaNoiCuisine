@@ -1,7 +1,7 @@
 // Review service: create reviews for published restaurants and handle duplicates
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../../database/prisma.js';
-import type { CreateReviewBody } from '../schemas/review.schema.js';
+import type { CreateReviewBody, UpdateReviewBody } from '../schemas/review.schema.js';
 
 export async function createReview(slug: string, userId: number, body: CreateReviewBody) {
     const restaurant = await prisma.restaurant.findFirst({
@@ -38,4 +38,21 @@ export async function createReview(slug: string, userId: number, body: CreateRev
 
         throw error;
     }
+}
+
+export async function updateOwnReview(slug: string, userId: number, body: UpdateReviewBody) {
+    const { count } = await prisma.review.updateMany({
+        where: { userId, restaurant: { slug, published: true } },
+        data: { rating: body.rating, comment: body.comment },
+    });
+
+    return count > 0;
+}
+
+export async function deleteOwnReview(slug: string, userId: number) {
+    const { count } = await prisma.review.deleteMany({
+        where: { userId, restaurant: { slug } },
+    });
+
+    return count > 0;
 }

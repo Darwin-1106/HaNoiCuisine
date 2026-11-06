@@ -15,3 +15,12 @@ export const createReviewBody = z.strictObject({
 });
 
 export type CreateReviewBody = z.infer<typeof createReviewBody>;
+
+export const updateReviewBody = createReviewBody
+    .extend({ comment: createReviewBody.shape.comment.nullable() })
+    .partial()
+    .refine(({ rating, comment }) => rating !== undefined || comment !== undefined, {
+        message: 'Cần gửi ít nhất một trường để cập nhật',
+    });
+
+export type UpdateReviewBody = z.infer<typeof updateReviewBody>;
