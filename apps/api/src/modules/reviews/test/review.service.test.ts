@@ -2,12 +2,12 @@
 import { Prisma } from '@prisma/client';
 import { describe, expect, it, vi } from 'vitest';
 import { prisma } from '../../../database/prisma.js';
-import { createReview } from '../services/review.service.js';
+import { createReview, deleteOwnReview, updateOwnReview } from '../services/review.service.js';
 
 vi.mock('../../../database/prisma.js', () => ({
     prisma: {
         restaurant: { findFirst: vi.fn() },
-        review: { create: vi.fn() },
+        review: { create: vi.fn(), updateMany: vi.fn(), deleteMany: vi.fn() },
     },
 }));
 
@@ -82,5 +82,40 @@ describe('createReview', () => {
         reviews.create.mockRejectedValue(error);
 
         await expect(createReview('pho-thin', 7, { rating: 5 })).rejects.toBe(error);
+    });
+});
+
+describe('updateOwnReview', () => {
+    it('only updates the owner review of a published restaurant and accepts a cleared comment', async () => {
+        reviews.updateMany.mockResolvedValue({ count: 1 });
+
+        await expect(updateOwnReview('pho-thin', 7, { comment: null })).resolves.toBe(true);
+        expect(reviews.updateMany).toHaveBeenCalledExactlyOnceWith({
+            where: { userId: 7, restaurant: { slug: 'pho-thin', published: true } },
+            data: { rating: undefined, comment: null },
+        });
+    });
+
+    it('returns false when no eligible review matches', async () => {
+        reviews.updateMany.mockResolvedValue({ count: 0 });
+
+        await expect(updateOwnReview('pho-thin', 7, { rating: 4 })).resolves.toBe(false);
+    });
+});
+
+describe('deleteOwnReview', () => {
+    it('only deletes the owner review and allows removal from a hidden restaurant', async () => {
+        reviews.deleteMany.mockResolvedValue({ count: 1 });
+
+        await expect(deleteOwnReview('pho-thin', 7)).resolves.toBe(true);
+        expect(reviews.deleteMany).toHaveBeenCalledExactlyOnceWith({
+            where: { userId: 7, restaurant: { slug: 'pho-thin' } },
+        });
+    });
+
+    it('returns false when the user has no matching review', async () => {
+        reviews.deleteMany.mockResolvedValue({ count: 0 });
+
+        await expect(deleteOwnReview('pho-thin', 7)).resolves.toBe(false);
     });
 });

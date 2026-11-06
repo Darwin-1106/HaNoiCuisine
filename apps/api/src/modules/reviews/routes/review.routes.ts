@@ -7,3 +7,5 @@ import * as controller from '../controllers/review.controller.js';
 export const reviewRouter = Router();
 
 reviewRouter.post('/:slug/reviews', asyncHandler(requireAuth), asyncHandler(controller.create));
+reviewRouter.patch('/:slug/reviews/me', asyncHandler(requireAuth), asyncHandler(controller.update));
+reviewRouter.delete('/:slug/reviews/me', asyncHandler(requireAuth), asyncHandler(controller.remove));
