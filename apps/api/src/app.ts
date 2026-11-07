@@ -13,6 +13,7 @@ import { restaurantRouter } from './modules/restaurants/routes/restaurant.routes
 import { seasonRouter } from './modules/seasons/routes/season.routes.js';
 import { requireCsrf } from './middlewares/require-csrf.js';
 import { reviewRouter } from './modules/reviews/routes/review.routes.js';
+import { favoriteRouter } from './modules/favorites/routes/favorite.routes.js';
 
 export function createApp() {
     const app = express();
@@ -42,6 +43,7 @@ export function createApp() {
     app.use('/api/v1/articles', articleRouter);
     app.use('/api/v1/itineraries', itineraryRouter);
     app.use('/api/v1/auth', authRouter);
+    app.use('/api/v1', favoriteRouter);
 
     app.use((_req, res) => {
         res.status(404).json({ error: 'Không tìm thấy đường dẫn' });
