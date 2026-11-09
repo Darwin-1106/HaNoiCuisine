@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { asyncHandler } from '../../../middlewares/async-handler.js';
 import { requireAdmin } from '../../../middlewares/require-admin.js';
 import { requireAuth } from '../../../middlewares/require-auth.js';
+import * as restaurantController from '../controllers/admin-restaurant.controller.js';
 
 export const adminRouter = Router();
 
@@ -11,3 +12,6 @@ adminRouter.use(asyncHandler(requireAuth), requireAdmin);
 adminRouter.get('/status', (_req, res) => {
     res.json({ status: 'ok' });
 });
+
+adminRouter.get('/restaurants', asyncHandler(restaurantController.list));
+adminRouter.patch('/restaurants/:id/visibility', asyncHandler(restaurantController.updateVisibility));
