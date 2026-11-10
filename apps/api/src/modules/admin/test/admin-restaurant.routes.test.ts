@@ -7,7 +7,7 @@ import { prisma } from '../../../database/prisma.js';
 import { getUserBySessionToken } from '../../auth/services/auth.service.js';
 
 vi.mock('../../../database/prisma.js', () => ({
-    prisma: { restaurant: { findMany: vi.fn(), count: vi.fn(), update: vi.fn() } },
+    prisma: { restaurant: { findMany: vi.fn(), count: vi.fn(), update: vi.fn(), create: vi.fn() } },
 }));
 vi.mock('../../auth/services/auth.service.js', () => ({ getUserBySessionToken: vi.fn() }));
 
@@ -161,5 +161,124 @@ describe('Admin restaurants', () => {
         expect(res.status).toBe(403);
         expect(lookup).not.toHaveBeenCalled();
         expect(db.update).not.toHaveBeenCalled();
+    });
+});
+
+describe('Admin restaurant writes', () => {
+    const body = { name: 'Phở Hà Nội', slug: 'pho-ha-noi', address: 'Hà Nội', districtId: 1 };
+    const editPath = path + '/3';
+
+    it('creates a hidden restaurant and normalizes text fields', async () => {
+        const restaurant = { id: 3, ...body, published: false };
+        db.create.mockResolvedValue(restaurant as never);
+
+        const res = await request(app)
+            .post(path)
+            .set(headers)
+            .send({ ...body, name: '  Phở Hà Nội  ' });
+
+        expect(res.status).toBe(201);
+        expect(res.body).toEqual({ restaurant });
+        expect(db.create).toHaveBeenCalledExactlyOnceWith(
+            expect.objectContaining({ data: { ...body, published: false } }),
+        );
+    });
+
+    it('updates only the fields provided, preserving visibility', async () => {
+        const restaurant = { id: 3, ...body, address: 'Địa chỉ mới', published: true };
+        db.update.mockResolvedValue(restaurant as never);
+
+        const res = await request(app).patch(editPath).set(headers).send({ address: '  Địa chỉ mới  ' });
+
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual({ restaurant });
+        expect(db.update).toHaveBeenCalledExactlyOnceWith(
+            expect.objectContaining({ where: { id: 3 }, data: { address: 'Địa chỉ mới' } }),
+        );
+    });
+
+    it.each([
+        { ...body, published: true },
+        { ...body, slug: 'Phở Hà Nội' },
+        { ...body, districtId: '1' },
+        { slug: body.slug, address: body.address, districtId: body.districtId },
+    ])('rejects invalid create body %o', async (input) => {
+        const res = await request(app).post(path).set(headers).send(input);
+
+        expect(res.status).toBe(400);
+        expect(db.create).not.toHaveBeenCalled();
+    });
+
+    it.each([{}, { published: true }, { name: ' ' }])('rejects invalid update body %o', async (input) => {
+        const res = await request(app).patch(editPath).set(headers).send(input);
+
+        expect(res.status).toBe(400);
+        expect(db.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects invalid update IDs before writing', async () => {
+        const res = await request(app)
+            .patch(path + '/2147483648')
+            .set(headers)
+            .send({ name: body.name });
+
+        expect(res.status).toBe(400);
+        expect(db.update).not.toHaveBeenCalled();
+    });
+
+    it.each([
+        ['post', path, 'create', 'P2002', 409, 'Slug đã được sử dụng'],
+        ['patch', editPath, 'update', 'P2002', 409, 'Slug đã được sử dụng'],
+        ['post', path, 'create', 'P2003', 400, 'Quận không tồn tại'],
+        ['patch', editPath, 'update', 'P2003', 400, 'Quận không tồn tại'],
+        ['patch', editPath, 'update', 'P2025', 404, 'Không tìm thấy quán'],
+    ] as const)('maps %s Prisma error %s (%s, %s) to %i', async (method, url, operation, code, status, error) => {
+        db[operation].mockRejectedValue(
+            new Prisma.PrismaClientKnownRequestError('Database constraint failed', { code, clientVersion: 'test' }),
+        );
+
+        const res = await request(app)[method](url).set(headers).send(body);
+
+        expect(res.status).toBe(status);
+        expect(res.body).toEqual({ error });
+        expect(db[operation]).toHaveBeenCalledTimes(1);
+    });
+
+    describe.each([
+        ['post', path],
+        ['patch', editPath],
+    ] as const)('%s %s', (method, url) => {
+        it('requires a session before writing', async () => {
+            const res = await request(app)
+                [method](url)
+                .set({
+                    Origin: headers.Origin,
+                    'X-CSRF-Protection': '1',
+                })
+                .send(body);
+
+            expect(res.status).toBe(401);
+            expect(db.create).not.toHaveBeenCalled();
+            expect(db.update).not.toHaveBeenCalled();
+        });
+
+        it('rejects regular users before writing', async () => {
+            lookup.mockResolvedValue({ ...admin, role: 'USER' });
+
+            const res = await request(app)[method](url).set(headers).send(body);
+
+            expect(res.status).toBe(403);
+            expect(db.create).not.toHaveBeenCalled();
+            expect(db.update).not.toHaveBeenCalled();
+        });
+
+        it('requires CSRF headers before writing', async () => {
+            const res = await request(app)[method](url).set('Cookie', cookie).send(body);
+
+            expect(res.status).toBe(403);
+            expect(lookup).not.toHaveBeenCalled();
+            expect(db.create).not.toHaveBeenCalled();
+            expect(db.update).not.toHaveBeenCalled();
+        });
     });
 });

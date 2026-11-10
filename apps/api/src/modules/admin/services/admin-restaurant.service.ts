@@ -1,7 +1,11 @@
 // List restaurants for admins and change visibility without deleting data
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../../database/prisma.js';
-import type { ListAdminRestaurantsQuery } from '../schemas/admin-restaurant.schema.js';
+import type {
+    CreateAdminRestaurantBody,
+    ListAdminRestaurantsQuery,
+    UpdateAdminRestaurantBody,
+} from '../schemas/admin-restaurant.schema.js';
 
 export async function listAdminRestaurants({ page, limit }: ListAdminRestaurantsQuery) {
     const [items, total] = await Promise.all([
@@ -30,5 +34,51 @@ export async function setRestaurantVisibility(id: number, published: boolean) {
         }
 
         throw error;
+    }
+}
+
+const restaurantWriteSelect = {
+    id: true,
+    name: true,
+    slug: true,
+    address: true,
+    districtId: true,
+    published: true,
+} satisfies Prisma.RestaurantSelect;
+
+function handleRestaurantWriteError(error: unknown) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2002') return { status: 'duplicate_slug' as const };
+        if (error.code === 'P2003') return { status: 'invalid_district' as const };
+        if (error.code === 'P2025') return { status: 'not_found' as const };
+    }
+
+    throw error;
+}
+
+export async function createAdminRestaurant(body: CreateAdminRestaurantBody) {
+    try {
+        const restaurant = await prisma.restaurant.create({
+            data: { ...body, published: false },
+            select: restaurantWriteSelect,
+        });
+
+        return { status: 'ok' as const, restaurant };
+    } catch (error) {
+        return handleRestaurantWriteError(error);
+    }
+}
+
+export async function updateAdminRestaurant(id: number, body: UpdateAdminRestaurantBody) {
+    try {
+        const restaurant = await prisma.restaurant.update({
+            where: { id },
+            data: body,
+            select: restaurantWriteSelect,
+        });
+
+        return { status: 'ok' as const, restaurant };
+    } catch (error) {
+        return handleRestaurantWriteError(error);
     }
 }
