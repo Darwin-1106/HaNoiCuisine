@@ -132,3 +132,9 @@ export async function saveAdminRestaurantDish(
         throw error;
     }
 }
+
+export async function removeAdminRestaurantDish(restaurantId: number, dishId: number) {
+    await prisma.restaurantDish.deleteMany({
+        where: { restaurantId, dishId },
+    });
+}
