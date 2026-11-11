@@ -10,6 +10,7 @@ import {
 } from '../schemas/admin-restaurant.schema.js';
 import {
     createAdminRestaurant,
+    getAdminRestaurantById,
     listAdminRestaurants,
     setRestaurantVisibility,
     updateAdminRestaurant,
@@ -94,4 +95,23 @@ export async function update(req: Request, res: Response) {
 
     const result = await updateAdminRestaurant(params.data.id, body.data);
     sendWriteResult(res, result, 200);
+}
+
+export async function detail(req: Request, res: Response) {
+    const params = adminRestaurantParams.safeParse(req.params);
+    if (!params.success) {
+        res.status(400).json({
+            error: 'Tham số không hợp lệ',
+            details: z.flattenError(params.error),
+        });
+        return;
+    }
+
+    const restaurant = await getAdminRestaurantById(params.data.id);
+    if (!restaurant) {
+        res.status(404).json({ error: 'Không tìm thấy quán' });
+        return;
+    }
+
+    res.set('Cache-Control', 'no-store').json({ restaurant });
 }

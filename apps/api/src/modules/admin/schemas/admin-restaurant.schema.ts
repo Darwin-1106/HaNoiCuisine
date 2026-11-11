@@ -27,15 +27,16 @@ export const createAdminRestaurantBody = z.strictObject({
         .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
     address: z.string().trim().min(1).max(300),
     districtId: z.number().int().positive().max(2_147_483_647),
+    openHours: z.string().trim().min(1).max(200).nullable().optional(),
+    phone: z.string().trim().min(1).max(30).nullable().optional(),
+    description: z.string().trim().min(1).max(5_000).nullable().optional(),
 });
 
 export const updateAdminRestaurantBody = createAdminRestaurantBody
     .partial()
-    .refine(
-        ({ name, slug, address, districtId }) =>
-            name !== undefined || slug !== undefined || address !== undefined || districtId !== undefined,
-        { message: 'Cần gửi ít nhất một trường để cập nhật' },
-    );
+    .refine((body) => Object.values(body).some((value) => value !== undefined), {
+        message: 'Cần gửi ít nhất một trường để cập nhật',
+    });
 
 export type CreateAdminRestaurantBody = z.infer<typeof createAdminRestaurantBody>;
 export type UpdateAdminRestaurantBody = z.infer<typeof updateAdminRestaurantBody>;

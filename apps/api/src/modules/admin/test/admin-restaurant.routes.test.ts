@@ -7,7 +7,9 @@ import { prisma } from '../../../database/prisma.js';
 import { getUserBySessionToken } from '../../auth/services/auth.service.js';
 
 vi.mock('../../../database/prisma.js', () => ({
-    prisma: { restaurant: { findMany: vi.fn(), count: vi.fn(), update: vi.fn(), create: vi.fn() } },
+    prisma: {
+        restaurant: { findMany: vi.fn(), count: vi.fn(), update: vi.fn(), create: vi.fn(), findUnique: vi.fn() },
+    },
 }));
 vi.mock('../../auth/services/auth.service.js', () => ({ getUserBySessionToken: vi.fn() }));
 
@@ -281,4 +283,121 @@ describe('Admin restaurant writes', () => {
             expect(db.update).not.toHaveBeenCalled();
         });
     });
+});
+
+describe('Admin restaurant details', () => {
+    const detailPath = path + '/3';
+    const base = { name: 'Phở Hà Nội', slug: 'pho-ha-noi', address: 'Hà Nội', districtId: 1 };
+    const extraFields = { openHours: '07:00–22:00', phone: '0901234567', description: 'Quán phở Hà Nội' };
+    const hidden = { id: 3, ...base, ...extraFields, published: false };
+    const extraSelect = { openHours: true, phone: true, description: true };
+
+    it('returns hidden restaurant details with the three editable fields', async () => {
+        db.findUnique.mockResolvedValue(hidden as never);
+
+        const res = await request(app).get(detailPath).set('Cookie', cookie);
+
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual({ restaurant: hidden });
+        expect(db.findUnique).toHaveBeenCalledExactlyOnceWith({
+            where: { id: 3 },
+            select: expect.objectContaining(extraSelect),
+        });
+    });
+
+    it('prevents storage of the admin detail response', async () => {
+        db.findUnique.mockResolvedValue(hidden as never);
+
+        const res = await request(app).get(detailPath).set('Cookie', cookie);
+
+        expect(res.status).toBe(200);
+        expect(res.headers['cache-control']).toBe('no-store');
+    });
+
+    it('returns 404 for a valid ID without a matching restaurant', async () => {
+        db.findUnique.mockResolvedValue(null);
+
+        const res = await request(app).get(detailPath).set('Cookie', cookie);
+
+        expect(res.status).toBe(404);
+        expect(res.body).toEqual({ error: 'Không tìm thấy quán' });
+    });
+
+    it('rejects invalid IDs before querying Prisma', async () => {
+        const res = await request(app)
+            .get(path + '/1e2')
+            .set('Cookie', cookie);
+
+        expect(res.status).toBe(400);
+        expect(db.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('requires a session to read restaurant details', async () => {
+        const res = await request(app).get(detailPath);
+
+        expect(res.status).toBe(401);
+        expect(db.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('prevents regular users from reading restaurant details', async () => {
+        lookup.mockResolvedValue({ ...admin, role: 'USER' });
+
+        const res = await request(app).get(detailPath).set('Cookie', cookie);
+
+        expect(res.status).toBe(403);
+        expect(db.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('accepts and returns all three optional fields on creation', async () => {
+        db.create.mockResolvedValue(hidden as never);
+
+        const res = await request(app)
+            .post(path)
+            .set(headers)
+            .send({
+                ...base,
+                ...extraFields,
+                openHours: '  07:00–22:00  ',
+            });
+
+        expect(res.status).toBe(201);
+        expect(res.body).toEqual({ restaurant: hidden });
+        expect(db.create).toHaveBeenCalledExactlyOnceWith(
+            expect.objectContaining({
+                data: { ...base, ...extraFields, published: false },
+                select: expect.objectContaining(extraSelect),
+            }),
+        );
+    });
+
+    it.each([
+        [{ openHours: '  08:00–21:00  ' }, { openHours: '08:00–21:00' }],
+        [{ phone: null }, { phone: null }],
+        [{ description: 'Mô tả mới' }, { description: 'Mô tả mới' }],
+    ])('updates a single optional field and leaves omitted fields untouched: %o', async (input, data) => {
+        const restaurant = { ...hidden, ...data };
+        db.update.mockResolvedValue(restaurant as never);
+
+        const res = await request(app).patch(detailPath).set(headers).send(input);
+
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual({ restaurant });
+        expect(db.update).toHaveBeenCalledExactlyOnceWith(
+            expect.objectContaining({
+                where: { id: 3 },
+                data,
+                select: expect.objectContaining(extraSelect),
+            }),
+        );
+    });
+
+    it.each([{ openHours: ' '.repeat(3) }, { phone: '0'.repeat(31) }, { description: 'x'.repeat(5001) }])(
+        'rejects invalid optional fields: %o',
+        async (input) => {
+            const res = await request(app).patch(detailPath).set(headers).send(input);
+
+            expect(res.status).toBe(400);
+            expect(db.update).not.toHaveBeenCalled();
+        },
+    );
 });

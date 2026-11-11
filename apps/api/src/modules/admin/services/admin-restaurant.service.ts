@@ -43,6 +43,9 @@ const restaurantWriteSelect = {
     slug: true,
     address: true,
     districtId: true,
+    openHours: true,
+    phone: true,
+    description: true,
     published: true,
 } satisfies Prisma.RestaurantSelect;
 
@@ -81,4 +84,11 @@ export async function updateAdminRestaurant(id: number, body: UpdateAdminRestaur
     } catch (error) {
         return handleRestaurantWriteError(error);
     }
+}
+
+export function getAdminRestaurantById(id: number) {
+    return prisma.restaurant.findUnique({
+        where: { id },
+        select: restaurantWriteSelect,
+    });
 }
