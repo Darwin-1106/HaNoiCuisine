@@ -14,6 +14,7 @@ adminRouter.get('/status', (_req, res) => {
 });
 
 adminRouter.get('/restaurants', asyncHandler(restaurantController.list));
+adminRouter.get('/restaurants/:id', asyncHandler(restaurantController.detail));
 adminRouter.patch('/restaurants/:id/visibility', asyncHandler(restaurantController.updateVisibility));
 adminRouter.post('/restaurants', asyncHandler(restaurantController.create));
 adminRouter.patch('/restaurants/:id', asyncHandler(restaurantController.update));
