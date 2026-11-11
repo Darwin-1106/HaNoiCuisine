@@ -57,7 +57,7 @@ export async function listDishes(query: ListDishesQuery) {
         prisma.dish.findMany({
             where,
             select: dishSummarySelect,
-            orderBy: { name: 'asc' },
+            orderBy: [{ name: 'asc' }, { id: 'asc' }],
             skip: (page - 1) * limit,
             take: limit,
         }),

@@ -22,7 +22,9 @@ describe('listDishes', () => {
 
         await listDishes({ page: 1, limit: 12 });
 
-        expect(db.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: {}, skip: 0, take: 12 }));
+        expect(db.findMany).toHaveBeenCalledWith(
+            expect.objectContaining({ where: {}, orderBy: [{ name: 'asc' }, { id: 'asc' }], skip: 0, take: 12 }),
+        );
         expect(db.count).toHaveBeenCalledWith({ where: {} });
     });
 
