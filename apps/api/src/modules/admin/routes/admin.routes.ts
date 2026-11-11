@@ -4,6 +4,7 @@ import { asyncHandler } from '../../../middlewares/async-handler.js';
 import { requireAdmin } from '../../../middlewares/require-admin.js';
 import { requireAuth } from '../../../middlewares/require-auth.js';
 import * as restaurantController from '../controllers/admin-restaurant.controller.js';
+import * as districtController from '../controllers/admin-district.controller.js';
 
 export const adminRouter = Router();
 
@@ -18,3 +19,4 @@ adminRouter.get('/restaurants/:id', asyncHandler(restaurantController.detail));
 adminRouter.patch('/restaurants/:id/visibility', asyncHandler(restaurantController.updateVisibility));
 adminRouter.post('/restaurants', asyncHandler(restaurantController.create));
 adminRouter.patch('/restaurants/:id', asyncHandler(restaurantController.update));
+adminRouter.get('/districts', asyncHandler(districtController.list));
