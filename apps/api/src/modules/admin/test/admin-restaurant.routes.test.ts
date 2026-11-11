@@ -9,6 +9,7 @@ import { getUserBySessionToken } from '../../auth/services/auth.service.js';
 vi.mock('../../../database/prisma.js', () => ({
     prisma: {
         restaurant: { findMany: vi.fn(), count: vi.fn(), update: vi.fn(), create: vi.fn(), findUnique: vi.fn() },
+        restaurantDish: { upsert: vi.fn() },
     },
 }));
 vi.mock('../../auth/services/auth.service.js', () => ({ getUserBySessionToken: vi.fn() }));
@@ -508,5 +509,120 @@ describe('Admin restaurant price range', () => {
 
         expect(res.status).toBe(400);
         expect(db.update).not.toHaveBeenCalled();
+    });
+});
+
+describe('Admin restaurant dishes', () => {
+    const dishPath = path + '/3/dishes/8';
+    const key = { restaurantId: 3, dishId: 8 };
+    const upsert = vi.mocked(prisma.restaurantDish.upsert);
+
+    it.each([true, false])('saves the selected dish with signature %s', async (signature) => {
+        const restaurantDish = { ...key, signature };
+        upsert.mockResolvedValue(restaurantDish);
+
+        const res = await request(app).put(dishPath).set(headers).send({ signature });
+
+        expect(res.status).toBe(200);
+        expect(res.headers['cache-control']).toBe('no-store');
+        expect(res.body).toEqual({ restaurantDish });
+        expect(upsert).toHaveBeenCalledExactlyOnceWith({
+            where: { restaurantId_dishId: key },
+            create: restaurantDish,
+            update: { signature },
+        });
+    });
+
+    it.each([
+        ['/0/dishes/8', 'id'],
+        ['/3/dishes/2147483648', 'dishId'],
+    ])('rejects invalid URL parameters %s before writing', async (suffix, field) => {
+        const res = await request(app)
+            .put(path + suffix)
+            .set(headers)
+            .send({ signature: true });
+
+        expect(res.status).toBe(400);
+        expect(upsert).not.toHaveBeenCalled();
+        expect(res.body).toMatchObject({
+            error: 'Tham số không hợp lệ',
+            details: { fieldErrors: { [field]: [expect.any(String)] } },
+        });
+    });
+
+    it.each([{}, { signature: 'false' }, { signature: true, dishId: 9 }])(
+        'rejects invalid request bodies %o before writing',
+        async (body) => {
+            const res = await request(app).put(dishPath).set(headers).send(body);
+
+            expect(res.status).toBe(400);
+            expect(upsert).not.toHaveBeenCalled();
+        },
+    );
+
+    it('retries the same upsert once after a duplicate key error', async () => {
+        const restaurantDish = { ...key, signature: true };
+        upsert
+            .mockRejectedValueOnce(
+                new Prisma.PrismaClientKnownRequestError('Duplicate link', { code: 'P2002', clientVersion: 'test' }),
+            )
+            .mockResolvedValueOnce(restaurantDish);
+
+        const res = await request(app).put(dishPath).set(headers).send({ signature: true });
+
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual({ restaurantDish });
+        expect(upsert).toHaveBeenCalledTimes(2);
+        expect(upsert.mock.calls[1]).toEqual(upsert.mock.calls[0]);
+    });
+
+    it('returns 404 without retrying when the restaurant or dish is missing', async () => {
+        upsert.mockRejectedValue(
+            new Prisma.PrismaClientKnownRequestError('Missing relation', { code: 'P2003', clientVersion: 'test' }),
+        );
+
+        const res = await request(app).put(dishPath).set(headers).send({ signature: true });
+
+        expect(res.status).toBe(404);
+        expect(res.body).toEqual({ error: 'Không tìm thấy quán hoặc món ăn' });
+        expect(upsert).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns a generic 500 for an unexpected database error', async () => {
+        vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        upsert.mockRejectedValue(new Error('Private database error'));
+
+        const res = await request(app).put(dishPath).set(headers).send({ signature: true });
+
+        expect(res.status).toBe(500);
+        expect(res.body).toEqual({ error: 'Lỗi máy chủ' });
+        expect(upsert).toHaveBeenCalledTimes(1);
+    });
+
+    it('requires a session before writing', async () => {
+        const res = await request(app)
+            .put(dishPath)
+            .set({ Origin: headers.Origin, 'X-CSRF-Protection': '1' })
+            .send({ signature: true });
+
+        expect(res.status).toBe(401);
+        expect(upsert).not.toHaveBeenCalled();
+    });
+
+    it('rejects regular users before writing', async () => {
+        lookup.mockResolvedValue({ ...admin, role: 'USER' });
+
+        const res = await request(app).put(dishPath).set(headers).send({ signature: true });
+
+        expect(res.status).toBe(403);
+        expect(upsert).not.toHaveBeenCalled();
+    });
+
+    it('requires CSRF headers before looking up the session or writing', async () => {
+        const res = await request(app).put(dishPath).set('Cookie', cookie).send({ signature: true });
+
+        expect(res.status).toBe(403);
+        expect(lookup).not.toHaveBeenCalled();
+        expect(upsert).not.toHaveBeenCalled();
     });
 });

@@ -20,3 +20,4 @@ adminRouter.patch('/restaurants/:id/visibility', asyncHandler(restaurantControll
 adminRouter.post('/restaurants', asyncHandler(restaurantController.create));
 adminRouter.patch('/restaurants/:id', asyncHandler(restaurantController.update));
 adminRouter.get('/districts', asyncHandler(districtController.list));
+adminRouter.put('/restaurants/:id/dishes/:dishId', asyncHandler(restaurantController.saveDish));
