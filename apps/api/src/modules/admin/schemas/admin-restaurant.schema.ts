@@ -18,7 +18,7 @@ export const restaurantVisibilityBody = z.strictObject({ published: z.boolean() 
 
 export type ListAdminRestaurantsQuery = z.infer<typeof listAdminRestaurantsQuery>;
 
-export const createAdminRestaurantBody = z.strictObject({
+const adminRestaurantFields = z.strictObject({
     name: z.string().trim().min(1).max(200),
     slug: z
         .string()
@@ -30,10 +30,40 @@ export const createAdminRestaurantBody = z.strictObject({
     openHours: z.string().trim().min(1).max(200).nullable().optional(),
     phone: z.string().trim().min(1).max(30).nullable().optional(),
     description: z.string().trim().min(1).max(5_000).nullable().optional(),
+    priceMin: z.number().int().min(0).max(2_147_483_647).nullable().optional(),
+    priceMax: z.number().int().min(0).max(2_147_483_647).nullable().optional(),
 });
 
-export const updateAdminRestaurantBody = createAdminRestaurantBody
+type RestaurantPriceRange = Pick<z.infer<typeof adminRestaurantFields>, 'priceMin' | 'priceMax'>;
+
+function validatePriceRange({ priceMin, priceMax }: RestaurantPriceRange, ctx: z.RefinementCtx) {
+    if ((priceMin === undefined && priceMax === undefined) || (priceMin === null && priceMax === null)) {
+        return;
+    }
+
+    if (typeof priceMin !== 'number' || typeof priceMax !== 'number') {
+        ctx.addIssue({
+            code: 'custom',
+            path: ['priceMax'],
+            message: 'Cần gửi cả hai giá hoặc đặt cả hai thành null',
+        });
+        return;
+    }
+
+    if (priceMin > priceMax) {
+        ctx.addIssue({
+            code: 'custom',
+            path: ['priceMax'],
+            message: 'Giá tối đa phải lớn hơn hoặc bằng giá tối thiểu',
+        });
+    }
+}
+
+export const createAdminRestaurantBody = adminRestaurantFields.superRefine(validatePriceRange);
+
+export const updateAdminRestaurantBody = adminRestaurantFields
     .partial()
+    .superRefine(validatePriceRange)
     .refine((body) => Object.values(body).some((value) => value !== undefined), {
         message: 'Cần gửi ít nhất một trường để cập nhật',
     });

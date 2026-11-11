@@ -46,6 +46,8 @@ const restaurantWriteSelect = {
     openHours: true,
     phone: true,
     description: true,
+    priceMin: true,
+    priceMax: true,
     published: true,
 } satisfies Prisma.RestaurantSelect;
 

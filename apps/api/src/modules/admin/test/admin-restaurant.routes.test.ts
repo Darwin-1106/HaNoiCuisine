@@ -401,3 +401,112 @@ describe('Admin restaurant details', () => {
         },
     );
 });
+
+describe('Admin restaurant price range', () => {
+    const detailPath = path + '/3';
+    const base = { name: 'Phở Hà Nội', slug: 'pho-ha-noi', address: 'Hà Nội', districtId: 1 };
+    const price = { priceMin: 30_000, priceMax: 60_000 };
+    const restaurant = { id: 3, ...base, ...price, published: false };
+    const priceSelect = { priceMin: true, priceMax: true };
+
+    it('stores both prices when creating a restaurant and returns the range', async () => {
+        db.create.mockResolvedValue(restaurant as never);
+
+        const res = await request(app)
+            .post(path)
+            .set(headers)
+            .send({ ...base, ...price });
+
+        expect(res.status).toBe(201);
+        expect(res.body).toEqual({ restaurant });
+        expect(db.create).toHaveBeenCalledExactlyOnceWith({
+            data: { ...base, ...price, published: false },
+            select: expect.objectContaining(priceSelect),
+        });
+    });
+
+    it('returns the stored price range in admin details', async () => {
+        db.findUnique.mockResolvedValue(restaurant as never);
+
+        const res = await request(app).get(detailPath).set('Cookie', cookie);
+
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual({ restaurant });
+        expect(db.findUnique).toHaveBeenCalledExactlyOnceWith({
+            where: { id: 3 },
+            select: expect.objectContaining(priceSelect),
+        });
+    });
+
+    it.each([
+        { priceMin: 0, priceMax: 0 },
+        { priceMin: null, priceMax: null },
+    ])('updates both price fields together: %o', async (data) => {
+        const updated = { ...restaurant, ...data };
+        db.update.mockResolvedValue(updated as never);
+
+        const res = await request(app).patch(detailPath).set(headers).send(data);
+
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual({ restaurant: updated });
+        expect(db.update).toHaveBeenCalledExactlyOnceWith({
+            where: { id: 3 },
+            data,
+            select: expect.objectContaining(priceSelect),
+        });
+    });
+
+    it('keeps the existing range when patching other fields', async () => {
+        const updated = { ...restaurant, name: 'Phở Hà Nội mới' };
+        db.update.mockResolvedValue(updated as never);
+
+        const res = await request(app).patch(detailPath).set(headers).send({ name: updated.name });
+
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual({ restaurant: updated });
+        expect(db.update).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ data: { name: updated.name } }));
+    });
+
+    it('rejects inverted prices on create before writing', async () => {
+        const res = await request(app)
+            .post(path)
+            .set(headers)
+            .send({ ...base, priceMin: 60_000, priceMax: 30_000 });
+
+        expect(res.status).toBe(400);
+        expect(db.create).not.toHaveBeenCalled();
+    });
+
+    it.each([
+        { priceMin: 30_000 },
+        { priceMax: null },
+        { priceMin: null, priceMax: 60_000 },
+        { priceMin: 60_000, priceMax: 30_000 },
+        { priceMin: -1, priceMax: 60_000 },
+        { priceMin: 1.5, priceMax: 60_000 },
+        { priceMin: '30000', priceMax: 60_000 },
+        { priceMin: 0, priceMax: 2_147_483_648 },
+    ])('rejects an invalid price range before writing: %o', async (data) => {
+        const res = await request(app).patch(detailPath).set(headers).send(data);
+
+        expect(res.status).toBe(400);
+        expect(db.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects coordinate fields on create', async () => {
+        const res = await request(app)
+            .post(path)
+            .set(headers)
+            .send({ ...base, lat: 21.028511, lng: 105.804817 });
+
+        expect(res.status).toBe(400);
+        expect(db.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects coordinate fields on update', async () => {
+        const res = await request(app).patch(detailPath).set(headers).send({ lat: 21.028511, lng: 105.804817 });
+
+        expect(res.status).toBe(400);
+        expect(db.update).not.toHaveBeenCalled();
+    });
+});
