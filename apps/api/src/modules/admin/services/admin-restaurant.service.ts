@@ -4,6 +4,7 @@ import { prisma } from '../../../database/prisma.js';
 import type {
     CreateAdminRestaurantBody,
     ListAdminRestaurantsQuery,
+    SaveAdminRestaurantDishBody,
     UpdateAdminRestaurantBody,
 } from '../schemas/admin-restaurant.schema.js';
 
@@ -93,4 +94,32 @@ export function getAdminRestaurantById(id: number) {
         where: { id },
         select: restaurantWriteSelect,
     });
+}
+
+export async function saveAdminRestaurantDish(
+    restaurantId: number,
+    dishId: number,
+    { signature }: SaveAdminRestaurantDishBody,
+) {
+    const key = { restaurantId, dishId };
+    const save = () =>
+        prisma.restaurantDish.upsert({
+            where: { restaurantId_dishId: key },
+            create: { ...key, signature },
+            update: { signature },
+        });
+
+    try {
+        return await save().catch((error: unknown) => {
+            if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+                return save();
+            }
+            throw error;
+        });
+    } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') {
+            return null;
+        }
+        throw error;
+    }
 }

@@ -14,6 +14,16 @@ export const adminRestaurantParams = z.object({
         .pipe(z.number().int().max(2_147_483_647)),
 });
 
+export const adminRestaurantDishParams = adminRestaurantParams.extend({
+    dishId: adminRestaurantParams.shape.id,
+});
+
+export const saveAdminRestaurantDishBody = z.strictObject({
+    signature: z.boolean(),
+});
+
+export type SaveAdminRestaurantDishBody = z.infer<typeof saveAdminRestaurantDishBody>;
+
 export const restaurantVisibilityBody = z.strictObject({ published: z.boolean() });
 
 export type ListAdminRestaurantsQuery = z.infer<typeof listAdminRestaurantsQuery>;

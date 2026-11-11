@@ -2,16 +2,19 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
 import {
+    adminRestaurantDishParams,
     adminRestaurantParams,
     createAdminRestaurantBody,
     listAdminRestaurantsQuery,
     restaurantVisibilityBody,
+    saveAdminRestaurantDishBody,
     updateAdminRestaurantBody,
 } from '../schemas/admin-restaurant.schema.js';
 import {
     createAdminRestaurant,
     getAdminRestaurantById,
     listAdminRestaurants,
+    saveAdminRestaurantDish,
     setRestaurantVisibility,
     updateAdminRestaurant,
 } from '../services/admin-restaurant.service.js';
@@ -114,4 +117,26 @@ export async function detail(req: Request, res: Response) {
     }
 
     res.set('Cache-Control', 'no-store').json({ restaurant });
+}
+
+export async function saveDish(req: Request, res: Response) {
+    const params = adminRestaurantDishParams.safeParse(req.params);
+    if (!params.success) {
+        res.status(400).json({ error: 'Tham số không hợp lệ', details: z.flattenError(params.error) });
+        return;
+    }
+
+    const body = saveAdminRestaurantDishBody.safeParse(req.body);
+    if (!body.success) {
+        res.status(400).json({ error: 'Dữ liệu không hợp lệ', details: z.flattenError(body.error) });
+        return;
+    }
+
+    const { id, dishId } = params.data;
+    const restaurantDish = await saveAdminRestaurantDish(id, dishId, body.data);
+    if (restaurantDish === null) {
+        res.status(404).json({ error: 'Không tìm thấy quán hoặc món ăn' });
+        return;
+    }
+    res.set('Cache-Control', 'no-store').json({ restaurantDish });
 }
