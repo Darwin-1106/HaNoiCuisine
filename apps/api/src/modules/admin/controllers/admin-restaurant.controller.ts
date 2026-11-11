@@ -14,6 +14,7 @@ import {
     createAdminRestaurant,
     getAdminRestaurantById,
     listAdminRestaurants,
+    removeAdminRestaurantDish,
     saveAdminRestaurantDish,
     setRestaurantVisibility,
     updateAdminRestaurant,
@@ -139,4 +140,16 @@ export async function saveDish(req: Request, res: Response) {
         return;
     }
     res.set('Cache-Control', 'no-store').json({ restaurantDish });
+}
+
+export async function removeDish(req: Request, res: Response) {
+    const params = adminRestaurantDishParams.safeParse(req.params);
+    if (!params.success) {
+        res.status(400).json({ error: 'Tham số không hợp lệ', details: z.flattenError(params.error) });
+        return;
+    }
+
+    const { id, dishId } = params.data;
+    await removeAdminRestaurantDish(id, dishId);
+    res.set('Cache-Control', 'no-store').status(204).end();
 }

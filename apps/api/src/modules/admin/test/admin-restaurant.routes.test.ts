@@ -9,7 +9,7 @@ import { getUserBySessionToken } from '../../auth/services/auth.service.js';
 vi.mock('../../../database/prisma.js', () => ({
     prisma: {
         restaurant: { findMany: vi.fn(), count: vi.fn(), update: vi.fn(), create: vi.fn(), findUnique: vi.fn() },
-        restaurantDish: { upsert: vi.fn() },
+        restaurantDish: { upsert: vi.fn(), deleteMany: vi.fn() },
     },
 }));
 vi.mock('../../auth/services/auth.service.js', () => ({ getUserBySessionToken: vi.fn() }));
@@ -660,5 +660,77 @@ describe('Admin restaurant dishes', () => {
         expect(res.status).toBe(403);
         expect(lookup).not.toHaveBeenCalled();
         expect(upsert).not.toHaveBeenCalled();
+    });
+});
+
+describe('Admin restaurant dish removal', () => {
+    const dishPath = path + '/3/dishes/8';
+    const deleteMany = vi.mocked(prisma.restaurantDish.deleteMany);
+
+    it('returns an empty 204 on removal and when the same request is repeated', async () => {
+        deleteMany.mockResolvedValueOnce({ count: 1 }).mockResolvedValueOnce({ count: 0 });
+
+        const first = await request(app).delete(dishPath).set(headers);
+        const repeated = await request(app).delete(dishPath).set(headers);
+
+        expect(first.status).toBe(204);
+        expect(first.text).toBe('');
+        expect(first.headers['cache-control']).toBe('no-store');
+        expect(repeated.status).toBe(204);
+        expect(repeated.text).toBe('');
+        expect(deleteMany.mock.calls).toEqual([
+            [{ where: { restaurantId: 3, dishId: 8 } }],
+            [{ where: { restaurantId: 3, dishId: 8 } }],
+        ]);
+    });
+
+    it.each([
+        ['/0/dishes/8', 'id'],
+        ['/3/dishes/2147483648', 'dishId'],
+    ])('rejects invalid URL parameters %s before deleting', async (suffix, field) => {
+        const res = await request(app)
+            .delete(path + suffix)
+            .set(headers);
+
+        expect(res.status).toBe(400);
+        expect(deleteMany).not.toHaveBeenCalled();
+        expect(res.body).toMatchObject({
+            error: 'Tham số không hợp lệ',
+            details: { fieldErrors: { [field]: [expect.any(String)] } },
+        });
+    });
+
+    it('requires a session before deleting', async () => {
+        const res = await request(app).delete(dishPath).set({ Origin: headers.Origin, 'X-CSRF-Protection': '1' });
+
+        expect(res.status).toBe(401);
+        expect(deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('rejects regular users before deleting', async () => {
+        lookup.mockResolvedValue({ ...admin, role: 'USER' });
+
+        const res = await request(app).delete(dishPath).set(headers);
+
+        expect(res.status).toBe(403);
+        expect(deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('requires CSRF headers before looking up the session or deleting', async () => {
+        const res = await request(app).delete(dishPath).set('Cookie', cookie);
+
+        expect(res.status).toBe(403);
+        expect(lookup).not.toHaveBeenCalled();
+        expect(deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('returns a generic 500 for an unexpected database error', async () => {
+        vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        deleteMany.mockRejectedValue(new Error('Private database error'));
+
+        const res = await request(app).delete(dishPath).set(headers);
+
+        expect(res.status).toBe(500);
+        expect(res.body).toEqual({ error: 'Lỗi máy chủ' });
     });
 });

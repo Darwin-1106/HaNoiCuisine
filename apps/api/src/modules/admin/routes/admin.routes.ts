@@ -21,3 +21,4 @@ adminRouter.post('/restaurants', asyncHandler(restaurantController.create));
 adminRouter.patch('/restaurants/:id', asyncHandler(restaurantController.update));
 adminRouter.get('/districts', asyncHandler(districtController.list));
 adminRouter.put('/restaurants/:id/dishes/:dishId', asyncHandler(restaurantController.saveDish));
+adminRouter.delete('/restaurants/:id/dishes/:dishId', asyncHandler(restaurantController.removeDish));
