@@ -306,6 +306,42 @@ describe('Admin restaurant details', () => {
         });
     });
 
+    it('returns linked dishes and their signature status for a hidden restaurant', async () => {
+        const dishes = [
+            { signature: true, dish: { id: 8, name: 'Phở bò', slug: 'pho-bo' } },
+            { signature: false, dish: { id: 12, name: 'Bún chả', slug: 'bun-cha' } },
+        ];
+        const restaurant = { ...hidden, dishes };
+        db.findUnique.mockResolvedValue(restaurant as never);
+
+        const res = await request(app).get(detailPath).set('Cookie', cookie);
+
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual({ restaurant });
+        expect(db.findUnique).toHaveBeenCalledExactlyOnceWith({
+            where: { id: 3 },
+            select: expect.objectContaining({
+                dishes: {
+                    orderBy: { dishId: 'asc' },
+                    select: {
+                        signature: true,
+                        dish: { select: { id: true, name: true, slug: true } },
+                    },
+                },
+            }),
+        });
+    });
+
+    it('returns an empty dishes array for a restaurant without linked dishes', async () => {
+        const restaurant = { ...hidden, dishes: [] };
+        db.findUnique.mockResolvedValue(restaurant as never);
+
+        const res = await request(app).get(detailPath).set('Cookie', cookie);
+
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual({ restaurant });
+    });
+
     it('prevents storage of the admin detail response', async () => {
         db.findUnique.mockResolvedValue(hidden as never);
 

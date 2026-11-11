@@ -92,7 +92,16 @@ export async function updateAdminRestaurant(id: number, body: UpdateAdminRestaur
 export function getAdminRestaurantById(id: number) {
     return prisma.restaurant.findUnique({
         where: { id },
-        select: restaurantWriteSelect,
+        select: {
+            ...restaurantWriteSelect,
+            dishes: {
+                orderBy: { dishId: 'asc' },
+                select: {
+                    signature: true,
+                    dish: { select: { id: true, name: true, slug: true } },
+                },
+            },
+        },
     });
 }
 
