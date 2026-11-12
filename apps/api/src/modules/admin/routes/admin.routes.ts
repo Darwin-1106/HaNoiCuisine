@@ -5,6 +5,7 @@ import { requireAdmin } from '../../../middlewares/require-admin.js';
 import { requireAuth } from '../../../middlewares/require-auth.js';
 import * as restaurantController from '../controllers/admin-restaurant.controller.js';
 import * as districtController from '../controllers/admin-district.controller.js';
+import * as articleController from '../controllers/admin-article.controller.js';
 
 export const adminRouter = Router();
 
@@ -22,3 +23,4 @@ adminRouter.patch('/restaurants/:id', asyncHandler(restaurantController.update))
 adminRouter.get('/districts', asyncHandler(districtController.list));
 adminRouter.put('/restaurants/:id/dishes/:dishId', asyncHandler(restaurantController.saveDish));
 adminRouter.delete('/restaurants/:id/dishes/:dishId', asyncHandler(restaurantController.removeDish));
+adminRouter.get('/articles', asyncHandler(articleController.list));
