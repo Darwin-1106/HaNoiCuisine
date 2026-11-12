@@ -5,7 +5,12 @@ import { createApp } from '../../../app.js';
 import { prisma } from '../../../database/prisma.js';
 import { getUserBySessionToken } from '../../auth/services/auth.service.js';
 
-vi.mock('../../../database/prisma.js', () => ({ prisma: { district: { findMany: vi.fn() } } }));
+vi.mock('../../../database/prisma.js', () => ({
+    prisma: {
+        district: { findMany: vi.fn() },
+        article: { findMany: vi.fn(), count: vi.fn() },
+    },
+}));
 vi.mock('../../auth/services/auth.service.js', () => ({ getUserBySessionToken: vi.fn() }));
 
 const lookupSession = vi.mocked(getUserBySessionToken);
@@ -97,6 +102,104 @@ describe('GET /api/v1/admin/districts', () => {
         vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
         const res = await request(app).get(districtPath).set('Cookie', cookie);
+
+        expect(res.status).toBe(500);
+        expect(res.body).toEqual({ error: 'Lỗi máy chủ' });
+    });
+});
+
+describe('GET /api/v1/admin/articles', () => {
+    const articlesPath = '/api/v1/admin/articles';
+    const cookie = 'token=session-token';
+    const articles = vi.mocked(prisma.article);
+    const admin = { ...user, role: 'ADMIN' as const };
+
+    it('returns draft and published articles on the requested page without caching', async () => {
+        lookupSession.mockResolvedValue(admin);
+        const createdAt = new Date('2026-11-10T00:00:00.000Z');
+        const items = [
+            { id: 4, title: 'Bài nháp', slug: 'bai-nhap', publishedAt: null, createdAt },
+            { id: 3, title: 'Bài đã đăng', slug: 'bai-da-dang', publishedAt: createdAt, createdAt },
+        ];
+        articles.findMany.mockResolvedValue(items as never);
+        articles.count.mockResolvedValue(5);
+
+        const res = await request(app).get(articlesPath).query({ page: 2, limit: 2 }).set('Cookie', cookie);
+
+        expect(res.status).toBe(200);
+        expect(res.headers['cache-control']).toBe('no-store');
+        expect(res.body).toEqual({
+            items: [
+                { ...items[0], createdAt: createdAt.toISOString() },
+                { ...items[1], createdAt: createdAt.toISOString(), publishedAt: createdAt.toISOString() },
+            ],
+            total: 5,
+            page: 2,
+            limit: 2,
+        });
+        expect(articles.findMany).toHaveBeenCalledExactlyOnceWith({
+            select: { id: true, title: true, slug: true, publishedAt: true, createdAt: true },
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+            skip: 2,
+            take: 2,
+        });
+        expect(articles.count).toHaveBeenCalledExactlyOnceWith();
+    });
+
+    it('uses default pagination for an empty list', async () => {
+        lookupSession.mockResolvedValue(admin);
+        articles.findMany.mockResolvedValue([]);
+        articles.count.mockResolvedValue(0);
+
+        const res = await request(app).get(articlesPath).set('Cookie', cookie);
+
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual({ items: [], total: 0, page: 1, limit: 12 });
+        expect(articles.findMany).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ skip: 0, take: 12 }));
+    });
+
+    it.each([
+        ['page', '0'],
+        ['page', '10001'],
+        ['limit', '51'],
+    ])('rejects invalid %s=%s before querying articles', async (field, value) => {
+        lookupSession.mockResolvedValue(admin);
+
+        const res = await request(app)
+            .get(articlesPath)
+            .query({ [field]: value })
+            .set('Cookie', cookie);
+
+        expect(res.status).toBe(400);
+        expect(res.body).toMatchObject({
+            error: 'Tham số không hợp lệ',
+            details: { fieldErrors: { [field]: [expect.any(String)] } },
+        });
+        expect(articles.findMany).not.toHaveBeenCalled();
+        expect(articles.count).not.toHaveBeenCalled();
+    });
+
+    it.each([401, 403])('returns %i before querying articles for a caller without admin access', async (status) => {
+        const req = request(app).get(articlesPath);
+        if (status === 403) {
+            lookupSession.mockResolvedValue({ ...user, role: 'USER' });
+            req.set('Cookie', cookie);
+        }
+
+        const res = await req;
+
+        expect(res.status).toBe(status);
+        expect(articles.findMany).not.toHaveBeenCalled();
+        expect(articles.count).not.toHaveBeenCalled();
+    });
+
+    it('returns a generic server error when the article query fails', async () => {
+        lookupSession.mockResolvedValue(admin);
+        articles.findMany.mockRejectedValue(new Error('Private database error'));
+        articles.count.mockResolvedValue(0);
+        vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+        const res = await request(app).get(articlesPath).set('Cookie', cookie);
 
         expect(res.status).toBe(500);
         expect(res.body).toEqual({ error: 'Lỗi máy chủ' });
