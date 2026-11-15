@@ -27,3 +27,5 @@ adminRouter.get('/articles', asyncHandler(articleController.list));
 adminRouter.get('/articles/:id', asyncHandler(articleController.detail));
 adminRouter.post('/articles', asyncHandler(articleController.create));
 adminRouter.patch('/articles/:id', asyncHandler(articleController.update));
+
+adminRouter.patch('/articles/:id/publication', asyncHandler(articleController.updatePublication));

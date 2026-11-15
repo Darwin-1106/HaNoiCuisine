@@ -9,7 +9,14 @@ import { getUserBySessionToken } from '../../auth/services/auth.service.js';
 vi.mock('../../../database/prisma.js', () => ({
     prisma: {
         district: { findMany: vi.fn() },
-        article: { findMany: vi.fn(), count: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
+        article: {
+            findMany: vi.fn(),
+            count: vi.fn(),
+            findUnique: vi.fn(),
+            create: vi.fn(),
+            update: vi.fn(),
+            updateMany: vi.fn(),
+        },
     },
 }));
 vi.mock('../../auth/services/auth.service.js', () => ({ getUserBySessionToken: vi.fn() }));
@@ -364,5 +371,99 @@ describe('Admin article editing', () => {
         expect(lookupSession).not.toHaveBeenCalled();
         expect(articles.create).not.toHaveBeenCalled();
         expect(articles.update).not.toHaveBeenCalled();
+    });
+
+    describe('article publication', () => {
+        const publicationPath = path + '/12/publication';
+
+        it.each([true, false])('sets published to %s using the server clock', async (published) => {
+            lookupSession.mockResolvedValue(admin);
+            articles.updateMany.mockResolvedValue({ count: 1 });
+            const before = Date.now();
+
+            const res = await request(app).patch(publicationPath).set(headers).send({ published });
+
+            expect(res.status).toBe(204);
+            expect(res.text).toBe('');
+            expect(res.headers['cache-control']).toBe('no-store');
+            if (published) {
+                const publishedAt = articles.updateMany.mock.calls[0][0]!.data.publishedAt as Date;
+                expect(publishedAt.getTime()).toBeGreaterThanOrEqual(before);
+                expect(publishedAt.getTime()).toBeLessThanOrEqual(Date.now());
+                expect(articles.updateMany).toHaveBeenCalledExactlyOnceWith({
+                    where: { id: 12, OR: [{ publishedAt: null }, { publishedAt: { gt: publishedAt } }] },
+                    data: { publishedAt },
+                });
+            } else {
+                expect(articles.updateMany).toHaveBeenCalledExactlyOnceWith({
+                    where: { id: 12 },
+                    data: { publishedAt: null },
+                });
+            }
+            expect(articles.findUnique).not.toHaveBeenCalled();
+        });
+
+        it('succeeds without resetting the timestamp when the article is already public', async () => {
+            lookupSession.mockResolvedValue(admin);
+            articles.updateMany.mockResolvedValue({ count: 0 });
+            articles.findUnique.mockResolvedValue({ ...draft, publishedAt: draft.createdAt });
+
+            const res = await request(app).patch(publicationPath).set(headers).send({ published: true });
+
+            expect(res.status).toBe(204);
+            expect(articles.findUnique).toHaveBeenCalledExactlyOnceWith({ where: { id: 12 }, select: { id: true } });
+        });
+
+        it('returns 404 for a missing article', async () => {
+            lookupSession.mockResolvedValue(admin);
+            articles.updateMany.mockResolvedValue({ count: 0 });
+            articles.findUnique.mockResolvedValue(null);
+
+            const res = await request(app).patch(publicationPath).set(headers).send({ published: false });
+
+            expect(res.status).toBe(404);
+            expect(res.body).toEqual({ error: 'Không tìm thấy bài viết' });
+        });
+
+        it.each([{}, { published: 'true' }, { published: true, publishedAt: null }])(
+            'rejects invalid publication input %o before writing',
+            async (input) => {
+                lookupSession.mockResolvedValue(admin);
+
+                const res = await request(app).patch(publicationPath).set(headers).send(input);
+
+                expect(res.status).toBe(400);
+                expect(articles.updateMany).not.toHaveBeenCalled();
+            },
+        );
+
+        it('rejects an invalid article ID before writing', async () => {
+            lookupSession.mockResolvedValue(admin);
+
+            const res = await request(app)
+                .patch(path + '/0/publication')
+                .set(headers)
+                .send({ published: true });
+
+            expect(res.status).toBe(400);
+            expect(articles.updateMany).not.toHaveBeenCalled();
+        });
+
+        it('requires a session, admin role and CSRF protection before writing', async () => {
+            const withoutSession = await request(app)
+                .patch(publicationPath)
+                .set({ Origin: headers.Origin, 'X-CSRF-Protection': '1' })
+                .send({ published: true });
+            lookupSession.mockResolvedValue({ ...user, role: 'USER' });
+            const regularUser = await request(app).patch(publicationPath).set(headers).send({ published: true });
+            lookupSession.mockResolvedValue(admin);
+            const withoutCsrf = await request(app)
+                .patch(publicationPath)
+                .set('Cookie', headers.Cookie)
+                .send({ published: true });
+
+            expect([withoutSession.status, regularUser.status, withoutCsrf.status]).toEqual([401, 403, 403]);
+            expect(articles.updateMany).not.toHaveBeenCalled();
+        });
     });
 });

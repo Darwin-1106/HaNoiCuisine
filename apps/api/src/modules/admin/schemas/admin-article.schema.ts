@@ -35,3 +35,5 @@ export const updateAdminArticleBody = createAdminArticleBody
 
 export type CreateAdminArticleBody = z.infer<typeof createAdminArticleBody>;
 export type UpdateAdminArticleBody = z.infer<typeof updateAdminArticleBody>;
+
+export const articlePublicationBody = z.strictObject({ published: z.boolean() });

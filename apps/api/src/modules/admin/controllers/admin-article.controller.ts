@@ -6,10 +6,12 @@ import {
     createAdminArticle,
     getAdminArticleById,
     listAdminArticles,
+    setAdminArticlePublication,
     updateAdminArticle,
 } from '../services/admin-article.service.js';
 import {
     adminArticleParams,
+    articlePublicationBody,
     createAdminArticleBody,
     listAdminArticlesQuery,
     updateAdminArticleBody,
@@ -96,4 +98,26 @@ export async function update(req: Request, res: Response) {
     } catch (error) {
         sendArticleWriteError(res, error);
     }
+}
+
+export async function updatePublication(req: Request, res: Response) {
+    const params = adminArticleParams.safeParse(req.params);
+    if (!params.success) {
+        res.status(400).json({ error: 'Tham số không hợp lệ', details: z.flattenError(params.error) });
+        return;
+    }
+
+    const body = articlePublicationBody.safeParse(req.body);
+    if (!body.success) {
+        res.status(400).json({ error: 'Dữ liệu không hợp lệ', details: z.flattenError(body.error) });
+        return;
+    }
+
+    const found = await setAdminArticlePublication(params.data.id, body.data.published);
+    if (!found) {
+        res.status(404).json({ error: 'Không tìm thấy bài viết' });
+        return;
+    }
+
+    res.set('Cache-Control', 'no-store').status(204).end();
 }
