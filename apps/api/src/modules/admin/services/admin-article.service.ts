@@ -46,3 +46,22 @@ export function createAdminArticle(authorId: number, body: CreateAdminArticleBod
 export function updateAdminArticle(id: number, body: UpdateAdminArticleBody) {
     return prisma.article.update({ where: { id }, data: body, select: articleDetailSelect });
 }
+
+export async function setAdminArticlePublication(id: number, published: boolean) {
+    const now = new Date();
+    const where: Prisma.ArticleWhereInput = { id };
+    if (published) {
+        where.OR = [{ publishedAt: null }, { publishedAt: { gt: now } }];
+    }
+
+    const { count } = await prisma.article.updateMany({
+        where,
+        data: { publishedAt: published ? now : null },
+    });
+    if (count > 0) {
+        return true;
+    }
+
+    const article = await prisma.article.findUnique({ where: { id }, select: { id: true } });
+    return article !== null;
+}
