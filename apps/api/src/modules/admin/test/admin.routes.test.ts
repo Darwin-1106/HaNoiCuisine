@@ -373,6 +373,68 @@ describe('Admin article editing', () => {
         expect(articles.update).not.toHaveBeenCalled();
     });
 
+    describe('article cover image', () => {
+        const coverImage = ['https:', '', 'example.test', 'cover.jpg'].join('/');
+        const articlePath = path + '/12';
+
+        it('sets the trimmed cover image when creating a draft', async () => {
+            lookupSession.mockResolvedValue(admin);
+            articles.create.mockResolvedValue({ ...draft, coverImage });
+
+            const res = await request(app)
+                .post(path)
+                .set(headers)
+                .send({ ...body, coverImage: '  ' + coverImage + '  ' });
+
+            expect(res.status).toBe(201);
+            expect(res.body.article.coverImage).toBe(coverImage);
+            expect(articles.create).toHaveBeenCalledExactlyOnceWith(
+                expect.objectContaining({ data: { ...body, coverImage, authorId: admin.id, publishedAt: null } }),
+            );
+        });
+
+        it.each([coverImage, null])('updates the cover image to %s', async (coverImage) => {
+            lookupSession.mockResolvedValue(admin);
+            articles.update.mockResolvedValue({ ...draft, coverImage });
+
+            const res = await request(app).patch(articlePath).set(headers).send({ coverImage });
+
+            expect(res.status).toBe(200);
+            expect(res.body.article.coverImage).toBe(coverImage);
+            expect(articles.update).toHaveBeenCalledExactlyOnceWith(
+                expect.objectContaining({ where: { id: 12 }, data: { coverImage } }),
+            );
+        });
+
+        it('preserves the cover image when editing other fields', async () => {
+            lookupSession.mockResolvedValue(admin);
+            articles.update.mockResolvedValue({ ...draft, coverImage, summary: 'Tóm tắt mới' });
+
+            const res = await request(app).patch(articlePath).set(headers).send({ summary: 'Tóm tắt mới' });
+
+            expect(res.status).toBe(200);
+            expect(res.body.article.coverImage).toBe(coverImage);
+            expect(articles.update).toHaveBeenCalledExactlyOnceWith(
+                expect.objectContaining({ where: { id: 12 }, data: { summary: 'Tóm tắt mới' } }),
+            );
+        });
+
+        it.each([
+            ['empty', ''],
+            ['relative', '/cover.jpg'],
+            ['insecure', coverImage.replace('https:', 'http:')],
+            ['overlong', coverImage.padEnd(501, 'a')],
+        ])('rejects a %s cover image before writing', async (_name, coverImage) => {
+            lookupSession.mockResolvedValue(admin);
+
+            const res = await request(app).patch(articlePath).set(headers).send({ coverImage });
+
+            expect(res.status).toBe(400);
+            expect(res.body.details.fieldErrors.coverImage).toEqual([expect.any(String)]);
+            expect(articles.update).not.toHaveBeenCalled();
+        });
+    });
+
     describe('article publication', () => {
         const publicationPath = path + '/12/publication';
 

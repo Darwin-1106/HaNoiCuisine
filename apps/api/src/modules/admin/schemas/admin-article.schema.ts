@@ -23,6 +23,13 @@ export const createAdminArticleBody = z.strictObject({
         .max(270)
         .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
     summary: z.string().trim().min(1).max(500).nullable().optional(),
+    coverImage: z
+        .string()
+        .trim()
+        .max(500)
+        .pipe(z.url({ protocol: /^https$/ }))
+        .nullable()
+        .optional(),
     contentMd: z
         .string()
         .max(50_000)
