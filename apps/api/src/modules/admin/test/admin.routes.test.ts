@@ -9,6 +9,7 @@ import { getUserBySessionToken } from '../../auth/services/auth.service.js';
 vi.mock('../../../database/prisma.js', () => ({
     prisma: {
         district: { findMany: vi.fn() },
+        review: { findMany: vi.fn(), count: vi.fn() },
         article: {
             findMany: vi.fn(),
             count: vi.fn(),
@@ -527,5 +528,114 @@ describe('Admin article editing', () => {
             expect([withoutSession.status, regularUser.status, withoutCsrf.status]).toEqual([401, 403, 403]);
             expect(articles.updateMany).not.toHaveBeenCalled();
         });
+    });
+});
+
+describe('GET /api/v1/admin/reviews', () => {
+    const reviewsPath = '/api/v1/admin/reviews';
+    const cookie = 'token=session-token';
+    const reviews = vi.mocked(prisma.review);
+    const admin = { ...user, role: 'ADMIN' as const };
+
+    it('returns the requested page without caching or selecting private author fields', async () => {
+        lookupSession.mockResolvedValue(admin);
+        const item = {
+            id: 8,
+            rating: 4,
+            comment: null,
+            createdAt: new Date('2026-11-17T00:00:00Z'),
+            restaurant: { id: 3, name: 'Phở Hà Nội', slug: 'pho-ha-noi' },
+            user: { name: 'An' },
+        };
+        reviews.findMany.mockResolvedValue([item] as never);
+        reviews.count.mockResolvedValue(5);
+
+        const res = await request(app).get(reviewsPath).query({ page: 2, limit: 2 }).set('Cookie', cookie);
+
+        expect(res.status).toBe(200);
+        expect(res.headers['cache-control']).toBe('no-store');
+        expect(res.body).toEqual({
+            items: [{ ...item, createdAt: item.createdAt.toISOString() }],
+            total: 5,
+            page: 2,
+            limit: 2,
+        });
+        expect(reviews.findMany).toHaveBeenCalledExactlyOnceWith({
+            select: {
+                id: true,
+                rating: true,
+                comment: true,
+                createdAt: true,
+                restaurant: { select: { id: true, name: true, slug: true } },
+                user: { select: { name: true } },
+            },
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+            skip: 2,
+            take: 2,
+        });
+        expect(reviews.count).toHaveBeenCalledExactlyOnceWith();
+    });
+
+    it('uses default pagination for an empty list', async () => {
+        lookupSession.mockResolvedValue(admin);
+        reviews.findMany.mockResolvedValue([]);
+        reviews.count.mockResolvedValue(0);
+
+        const res = await request(app).get(reviewsPath).set('Cookie', cookie);
+
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual({ items: [], total: 0, page: 1, limit: 12 });
+        expect(reviews.findMany).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ skip: 0, take: 12 }));
+    });
+
+    it.each([
+        ['page', '0'],
+        ['page', '10001'],
+        ['limit', '51'],
+    ])('rejects invalid %s=%s before querying reviews', async (field, value) => {
+        lookupSession.mockResolvedValue(admin);
+
+        const res = await request(app)
+            .get(reviewsPath)
+            .query({ [field]: value })
+            .set('Cookie', cookie);
+
+        expect(res.status).toBe(400);
+        expect(res.body).toMatchObject({
+            error: 'Tham số không hợp lệ',
+            details: { fieldErrors: { [field]: [expect.any(String)] } },
+        });
+        expect(reviews.findMany).not.toHaveBeenCalled();
+        expect(reviews.count).not.toHaveBeenCalled();
+    });
+
+    it('requires an active session before querying reviews', async () => {
+        const res = await request(app).get(reviewsPath);
+
+        expect(res.status).toBe(401);
+        expect(reviews.findMany).not.toHaveBeenCalled();
+        expect(reviews.count).not.toHaveBeenCalled();
+    });
+
+    it('requires admin access before querying reviews', async () => {
+        lookupSession.mockResolvedValue({ ...user, role: 'USER' });
+
+        const res = await request(app).get(reviewsPath).set('Cookie', cookie);
+
+        expect(res.status).toBe(403);
+        expect(reviews.findMany).not.toHaveBeenCalled();
+        expect(reviews.count).not.toHaveBeenCalled();
+    });
+
+    it('returns a generic server error when loading reviews fails', async () => {
+        lookupSession.mockResolvedValue(admin);
+        reviews.findMany.mockRejectedValue(new Error('Private database error'));
+        reviews.count.mockResolvedValue(0);
+        vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+        const res = await request(app).get(reviewsPath).set('Cookie', cookie);
+
+        expect(res.status).toBe(500);
+        expect(res.body).toEqual({ error: 'Lỗi máy chủ' });
     });
 });
