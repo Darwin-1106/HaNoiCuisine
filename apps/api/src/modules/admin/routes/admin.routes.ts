@@ -6,6 +6,7 @@ import { requireAuth } from '../../../middlewares/require-auth.js';
 import * as restaurantController from '../controllers/admin-restaurant.controller.js';
 import * as districtController from '../controllers/admin-district.controller.js';
 import * as articleController from '../controllers/admin-article.controller.js';
+import * as reviewController from '../controllers/admin-review.controller.js';
 
 export const adminRouter = Router();
 
@@ -29,3 +30,4 @@ adminRouter.post('/articles', asyncHandler(articleController.create));
 adminRouter.patch('/articles/:id', asyncHandler(articleController.update));
 
 adminRouter.patch('/articles/:id/publication', asyncHandler(articleController.updatePublication));
+adminRouter.get('/reviews', asyncHandler(reviewController.list));
