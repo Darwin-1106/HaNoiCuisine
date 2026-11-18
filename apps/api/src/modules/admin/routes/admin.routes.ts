@@ -31,3 +31,4 @@ adminRouter.patch('/articles/:id', asyncHandler(articleController.update));
 
 adminRouter.patch('/articles/:id/publication', asyncHandler(articleController.updatePublication));
 adminRouter.get('/reviews', asyncHandler(reviewController.list));
+adminRouter.delete('/reviews/:id', asyncHandler(reviewController.remove));

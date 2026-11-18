@@ -22,3 +22,8 @@ export async function listAdminReviews({ page, limit }: ListAdminReviewsQuery) {
 
     return { items, total, page, limit };
 }
+
+export async function deleteAdminReview(id: number): Promise<boolean> {
+    const { count } = await prisma.review.deleteMany({ where: { id } });
+    return count > 0;
+}
