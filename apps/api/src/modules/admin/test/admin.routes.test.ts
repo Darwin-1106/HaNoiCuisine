@@ -9,7 +9,7 @@ import { getUserBySessionToken } from '../../auth/services/auth.service.js';
 vi.mock('../../../database/prisma.js', () => ({
     prisma: {
         district: { findMany: vi.fn() },
-        review: { findMany: vi.fn(), count: vi.fn() },
+        review: { findMany: vi.fn(), count: vi.fn(), deleteMany: vi.fn() },
         article: {
             findMany: vi.fn(),
             count: vi.fn(),
@@ -634,6 +634,94 @@ describe('GET /api/v1/admin/reviews', () => {
         vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
         const res = await request(app).get(reviewsPath).set('Cookie', cookie);
+
+        expect(res.status).toBe(500);
+        expect(res.body).toEqual({ error: 'Lỗi máy chủ' });
+    });
+});
+
+describe('DELETE /api/v1/admin/reviews/:id', () => {
+    const reviewPath = '/api/v1/admin/reviews/8';
+    const headers = { Cookie: 'token=session-token', Origin: 'test-origin', 'X-CSRF-Protection': '1' };
+    const reviews = vi.mocked(prisma.review);
+    const admin = { ...user, role: 'ADMIN' as const };
+
+    it('deletes the review and returns 204 without caching', async () => {
+        lookupSession.mockResolvedValue(admin);
+        reviews.deleteMany.mockResolvedValue({ count: 1 });
+
+        const res = await request(app).delete(reviewPath).set(headers);
+
+        expect(res.status).toBe(204);
+        expect(res.headers['cache-control']).toBe('no-store');
+        expect(res.text).toBe('');
+        expect(reviews.deleteMany).toHaveBeenCalledExactlyOnceWith({ where: { id: 8 } });
+    });
+
+    it('returns 404 when the review does not exist', async () => {
+        lookupSession.mockResolvedValue(admin);
+        reviews.deleteMany.mockResolvedValue({ count: 0 });
+
+        const res = await request(app).delete(reviewPath).set(headers);
+
+        expect(res.status).toBe(404);
+        expect(res.body).toEqual({ error: 'Không tìm thấy đánh giá' });
+    });
+
+    it.each(['abc', '0', '-1', '1.5', '08', '2147483648'])(
+        'rejects the invalid id %s before deleting anything',
+        async (id) => {
+            lookupSession.mockResolvedValue(admin);
+
+            const res = await request(app).delete(`/api/v1/admin/reviews/${id}`).set(headers);
+
+            expect(res.status).toBe(400);
+            expect(res.body).toMatchObject({
+                error: 'Tham số không hợp lệ',
+                details: { fieldErrors: { id: [expect.any(String)] } },
+            });
+            expect(reviews.deleteMany).not.toHaveBeenCalled();
+        },
+    );
+
+    it('requires an active session before deleting', async () => {
+        const res = await request(app)
+            .delete(reviewPath)
+            .set({ ...headers, Cookie: '' });
+
+        expect(res.status).toBe(401);
+        expect(reviews.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('requires admin access before deleting', async () => {
+        lookupSession.mockResolvedValue({ ...user, role: 'USER' });
+
+        const res = await request(app).delete(reviewPath).set(headers);
+
+        expect(res.status).toBe(403);
+        expect(res.body).toEqual({ error: 'Bạn không có quyền truy cập' });
+        expect(reviews.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it.each([
+        ['without the CSRF header', { Cookie: headers.Cookie, Origin: headers.Origin }],
+        ['from another origin', { ...headers, Origin: 'https://evil.example' }],
+    ])('rejects a request %s before deleting', async (_case, requestHeaders) => {
+        lookupSession.mockResolvedValue(admin);
+
+        const res = await request(app).delete(reviewPath).set(requestHeaders);
+
+        expect(res.status).toBe(403);
+        expect(res.body).toEqual({ error: 'Yêu cầu không được phép' });
+        expect(reviews.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('returns a generic server error when deleting fails', async () => {
+        lookupSession.mockResolvedValue(admin);
+        reviews.deleteMany.mockRejectedValue(new Error('Private database error'));
+        vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+        const res = await request(app).delete(reviewPath).set(headers);
 
         expect(res.status).toBe(500);
         expect(res.body).toEqual({ error: 'Lỗi máy chủ' });
