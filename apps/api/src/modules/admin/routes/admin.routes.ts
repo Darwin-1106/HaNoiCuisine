@@ -7,6 +7,7 @@ import * as restaurantController from '../controllers/admin-restaurant.controlle
 import * as districtController from '../controllers/admin-district.controller.js';
 import * as articleController from '../controllers/admin-article.controller.js';
 import * as reviewController from '../controllers/admin-review.controller.js';
+import * as dishController from '../controllers/admin-dish.controller.js';
 
 export const adminRouter = Router();
 
@@ -32,3 +33,5 @@ adminRouter.patch('/articles/:id', asyncHandler(articleController.update));
 adminRouter.patch('/articles/:id/publication', asyncHandler(articleController.updatePublication));
 adminRouter.get('/reviews', asyncHandler(reviewController.list));
 adminRouter.delete('/reviews/:id', asyncHandler(reviewController.remove));
+adminRouter.get('/dishes', asyncHandler(dishController.list));
+adminRouter.get('/dishes/:id', asyncHandler(dishController.detail));
