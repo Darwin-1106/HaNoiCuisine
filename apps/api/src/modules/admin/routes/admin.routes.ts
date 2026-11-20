@@ -35,3 +35,5 @@ adminRouter.get('/reviews', asyncHandler(reviewController.list));
 adminRouter.delete('/reviews/:id', asyncHandler(reviewController.remove));
 adminRouter.get('/dishes', asyncHandler(dishController.list));
 adminRouter.get('/dishes/:id', asyncHandler(dishController.detail));
+adminRouter.post('/dishes', asyncHandler(dishController.create));
+adminRouter.patch('/dishes/:id', asyncHandler(dishController.update));

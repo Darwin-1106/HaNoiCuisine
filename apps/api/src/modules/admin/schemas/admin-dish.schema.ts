@@ -1,4 +1,4 @@
-// Validate admin dish list queries and IDs
+// Validate admin dish queries, IDs, and writes
 import { z } from 'zod';
 
 export const listAdminDishesQuery = z.object({
@@ -16,3 +16,21 @@ export const adminDishParams = z.object({
 });
 
 export type ListAdminDishesQuery = z.infer<typeof listAdminDishesQuery>;
+
+export const createAdminDishBody = z.strictObject({
+    name: z.string().trim().min(1).max(200),
+    slug: z
+        .string()
+        .trim()
+        .max(220)
+        .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+    description: z.string().trim().min(1).max(5_000).nullable().optional(),
+    originStory: z.string().trim().min(1).max(10_000).nullable().optional(),
+});
+
+export const updateAdminDishBody = createAdminDishBody
+    .partial()
+    .refine((body) => Object.keys(body).length > 0, { message: 'Cần gửi ít nhất một trường để cập nhật' });
+
+export type CreateAdminDishBody = z.infer<typeof createAdminDishBody>;
+export type UpdateAdminDishBody = z.infer<typeof updateAdminDishBody>;
