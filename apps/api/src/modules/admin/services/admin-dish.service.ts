@@ -1,7 +1,12 @@
 // Read and write dishes for admins with seasons and restaurant counts
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../../database/prisma.js';
-import type { CreateAdminDishBody, ListAdminDishesQuery, UpdateAdminDishBody } from '../schemas/admin-dish.schema.js';
+import type {
+    CreateAdminDishBody,
+    ListAdminDishesQuery,
+    SaveAdminDishSeasonBody,
+    UpdateAdminDishBody,
+} from '../schemas/admin-dish.schema.js';
 
 const dishListSelect = {
     id: true,
@@ -32,6 +37,12 @@ const dishDetailSelect = {
     },
     _count: { select: { restaurants: true } },
 } satisfies Prisma.DishSelect;
+
+const dishSeasonSelect = {
+    dishId: true,
+    seasonId: true,
+    bestMonths: true,
+} satisfies Prisma.DishSeasonSelect;
 
 export async function listAdminDishes({ page, limit, q }: ListAdminDishesQuery) {
     const where: Prisma.DishWhereInput = q ? { name: { contains: q } } : {};
@@ -66,4 +77,33 @@ export function createAdminDish(body: CreateAdminDishBody) {
 
 export function updateAdminDish(id: number, body: UpdateAdminDishBody) {
     return prisma.dish.update({ where: { id }, data: body, select: dishWriteSelect });
+}
+
+export async function saveAdminDishSeason(dishId: number, seasonId: number, { bestMonths }: SaveAdminDishSeasonBody) {
+    const key = { dishId, seasonId };
+    const save = () =>
+        prisma.dishSeason.upsert({
+            where: { dishId_seasonId: key },
+            create: { ...key, bestMonths },
+            update: { bestMonths },
+            select: dishSeasonSelect,
+        });
+
+    try {
+        return await save().catch((error: unknown) => {
+            if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+                return save();
+            }
+            throw error;
+        });
+    } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') {
+            return null;
+        }
+        throw error;
+    }
+}
+
+export async function removeAdminDishSeason(dishId: number, seasonId: number) {
+    await prisma.dishSeason.deleteMany({ where: { dishId, seasonId } });
 }

@@ -15,6 +15,16 @@ export const adminDishParams = z.object({
         .pipe(z.number().int().max(2_147_483_647)),
 });
 
+export const adminDishSeasonParams = adminDishParams.extend({
+    seasonId: adminDishParams.shape.id,
+});
+
+export const saveAdminDishSeasonBody = z.strictObject({
+    bestMonths: z.string().trim().min(1).max(50).nullable(),
+});
+
+export type SaveAdminDishSeasonBody = z.infer<typeof saveAdminDishSeasonBody>;
+
 export type ListAdminDishesQuery = z.infer<typeof listAdminDishesQuery>;
 
 export const createAdminDishBody = z.strictObject({
