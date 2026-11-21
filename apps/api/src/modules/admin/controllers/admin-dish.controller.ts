@@ -4,11 +4,20 @@ import type { Request, Response } from 'express';
 import { z } from 'zod';
 import {
     adminDishParams,
+    adminDishSeasonParams,
     createAdminDishBody,
     listAdminDishesQuery,
+    saveAdminDishSeasonBody,
     updateAdminDishBody,
 } from '../schemas/admin-dish.schema.js';
-import { createAdminDish, getAdminDishById, listAdminDishes, updateAdminDish } from '../services/admin-dish.service.js';
+import {
+    createAdminDish,
+    getAdminDishById,
+    listAdminDishes,
+    removeAdminDishSeason,
+    saveAdminDishSeason,
+    updateAdminDish,
+} from '../services/admin-dish.service.js';
 
 export async function list(req: Request, res: Response) {
     const query = listAdminDishesQuery.safeParse(req.query);
@@ -86,4 +95,38 @@ export async function update(req: Request, res: Response) {
     } catch (error) {
         sendDishWriteError(res, error);
     }
+}
+
+export async function saveSeason(req: Request, res: Response) {
+    const params = adminDishSeasonParams.safeParse(req.params);
+    if (!params.success) {
+        res.status(400).json({ error: 'Tham số không hợp lệ', details: z.flattenError(params.error) });
+        return;
+    }
+
+    const body = saveAdminDishSeasonBody.safeParse(req.body);
+    if (!body.success) {
+        res.status(400).json({ error: 'Dữ liệu không hợp lệ', details: z.flattenError(body.error) });
+        return;
+    }
+
+    const { id, seasonId } = params.data;
+    const dishSeason = await saveAdminDishSeason(id, seasonId, body.data);
+    if (dishSeason === null) {
+        res.status(404).json({ error: 'Không tìm thấy món ăn hoặc mùa' });
+        return;
+    }
+    res.set('Cache-Control', 'no-store').json({ dishSeason });
+}
+
+export async function removeSeason(req: Request, res: Response) {
+    const params = adminDishSeasonParams.safeParse(req.params);
+    if (!params.success) {
+        res.status(400).json({ error: 'Tham số không hợp lệ', details: z.flattenError(params.error) });
+        return;
+    }
+
+    const { id, seasonId } = params.data;
+    await removeAdminDishSeason(id, seasonId);
+    res.set('Cache-Control', 'no-store').status(204).end();
 }
