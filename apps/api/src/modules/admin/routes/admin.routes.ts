@@ -8,6 +8,7 @@ import * as districtController from '../controllers/admin-district.controller.js
 import * as articleController from '../controllers/admin-article.controller.js';
 import * as reviewController from '../controllers/admin-review.controller.js';
 import * as dishController from '../controllers/admin-dish.controller.js';
+import * as recipeController from '../controllers/admin-recipe.controller.js';
 
 export const adminRouter = Router();
 
@@ -39,3 +40,5 @@ adminRouter.post('/dishes', asyncHandler(dishController.create));
 adminRouter.patch('/dishes/:id', asyncHandler(dishController.update));
 adminRouter.put('/dishes/:id/seasons/:seasonId', asyncHandler(dishController.saveSeason));
 adminRouter.delete('/dishes/:id/seasons/:seasonId', asyncHandler(dishController.removeSeason));
+adminRouter.get('/recipes', asyncHandler(recipeController.list));
+adminRouter.get('/recipes/:id', asyncHandler(recipeController.detail));
