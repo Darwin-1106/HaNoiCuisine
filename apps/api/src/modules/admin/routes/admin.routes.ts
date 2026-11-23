@@ -42,3 +42,5 @@ adminRouter.put('/dishes/:id/seasons/:seasonId', asyncHandler(dishController.sav
 adminRouter.delete('/dishes/:id/seasons/:seasonId', asyncHandler(dishController.removeSeason));
 adminRouter.get('/recipes', asyncHandler(recipeController.list));
 adminRouter.get('/recipes/:id', asyncHandler(recipeController.detail));
+adminRouter.post('/recipes', asyncHandler(recipeController.create));
+adminRouter.patch('/recipes/:id', asyncHandler(recipeController.update));

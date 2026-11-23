@@ -1,7 +1,11 @@
-// Read recipes for admins with their dish, ingredients, and raw steps
+// Read and write recipes for admins with their dish, ingredients, and steps
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../../database/prisma.js';
-import type { ListAdminRecipesQuery } from '../schemas/admin-recipe.schema.js';
+import type {
+    CreateAdminRecipeBody,
+    ListAdminRecipesQuery,
+    UpdateAdminRecipeBody,
+} from '../schemas/admin-recipe.schema.js';
 
 const recipeListSelect = {
     id: true,
@@ -39,10 +43,30 @@ export async function listAdminRecipes({ page, limit, q }: ListAdminRecipesQuery
 
 export async function getAdminRecipeById(id: number) {
     const recipe = await prisma.recipe.findUnique({ where: { id }, select: recipeDetailSelect });
-    if (!recipe) {
-        return null;
-    }
+    return recipe ? toAdminRecipe(recipe) : null;
+}
 
-    const { stepsJson, ...rest } = recipe;
+function toAdminRecipe({ stepsJson, ...rest }: Prisma.RecipeGetPayload<{ select: typeof recipeDetailSelect }>) {
     return { ...rest, steps: stepsJson };
+}
+
+export async function createAdminRecipe({ steps, ingredients, ...fields }: CreateAdminRecipeBody) {
+    const recipe = await prisma.recipe.create({
+        data: { ...fields, stepsJson: steps, ingredients: { create: ingredients } },
+        select: recipeDetailSelect,
+    });
+    return toAdminRecipe(recipe);
+}
+
+export async function updateAdminRecipe(id: number, { steps, ingredients, ...fields }: UpdateAdminRecipeBody) {
+    const recipe = await prisma.recipe.update({
+        where: { id },
+        data: {
+            ...fields,
+            ...(steps && { stepsJson: steps }),
+            ...(ingredients && { ingredients: { deleteMany: {}, create: ingredients } }),
+        },
+        select: recipeDetailSelect,
+    });
+    return toAdminRecipe(recipe);
 }
