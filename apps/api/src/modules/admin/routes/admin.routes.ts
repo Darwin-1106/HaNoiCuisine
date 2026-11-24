@@ -9,6 +9,7 @@ import * as articleController from '../controllers/admin-article.controller.js';
 import * as reviewController from '../controllers/admin-review.controller.js';
 import * as dishController from '../controllers/admin-dish.controller.js';
 import * as recipeController from '../controllers/admin-recipe.controller.js';
+import * as itineraryController from '../controllers/admin-itinerary.controller.js';
 
 export const adminRouter = Router();
 
@@ -44,3 +45,5 @@ adminRouter.get('/recipes', asyncHandler(recipeController.list));
 adminRouter.get('/recipes/:id', asyncHandler(recipeController.detail));
 adminRouter.post('/recipes', asyncHandler(recipeController.create));
 adminRouter.patch('/recipes/:id', asyncHandler(recipeController.update));
+adminRouter.get('/itineraries', asyncHandler(itineraryController.list));
+adminRouter.get('/itineraries/:id', asyncHandler(itineraryController.detail));
