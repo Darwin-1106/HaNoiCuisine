@@ -47,3 +47,5 @@ adminRouter.post('/recipes', asyncHandler(recipeController.create));
 adminRouter.patch('/recipes/:id', asyncHandler(recipeController.update));
 adminRouter.get('/itineraries', asyncHandler(itineraryController.list));
 adminRouter.get('/itineraries/:id', asyncHandler(itineraryController.detail));
+adminRouter.post('/itineraries', asyncHandler(itineraryController.create));
+adminRouter.patch('/itineraries/:id', asyncHandler(itineraryController.update));

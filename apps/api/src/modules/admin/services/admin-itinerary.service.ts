@@ -1,7 +1,11 @@
-// Read itineraries for admins with their ordered stops
+// Read and write itineraries for admins with their ordered stops
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../../database/prisma.js';
-import type { ListAdminItinerariesQuery } from '../schemas/admin-itinerary.schema.js';
+import type {
+    CreateAdminItineraryBody,
+    ListAdminItinerariesQuery,
+    UpdateAdminItineraryBody,
+} from '../schemas/admin-itinerary.schema.js';
 
 const itineraryListSelect = {
     id: true,
@@ -48,4 +52,23 @@ export async function listAdminItineraries({ page, limit, q }: ListAdminItinerar
 
 export async function getAdminItineraryById(id: number) {
     return prisma.itinerary.findUnique({ where: { id }, select: itineraryDetailSelect });
+}
+
+function toStopData(stops: CreateAdminItineraryBody['stops']) {
+    return stops.map((stop, index) => ({ ...stop, orderNo: index + 1 }));
+}
+
+export async function createAdminItinerary({ stops, ...fields }: CreateAdminItineraryBody) {
+    return prisma.itinerary.create({
+        data: { ...fields, stops: { create: toStopData(stops) } },
+        select: itineraryDetailSelect,
+    });
+}
+
+export async function updateAdminItinerary(id: number, { stops, ...fields }: UpdateAdminItineraryBody) {
+    return prisma.itinerary.update({
+        where: { id },
+        data: { ...fields, ...(stops && { stops: { deleteMany: {}, create: toStopData(stops) } }) },
+        select: itineraryDetailSelect,
+    });
 }
