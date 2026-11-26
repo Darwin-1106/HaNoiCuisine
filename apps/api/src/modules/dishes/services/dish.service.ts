@@ -23,7 +23,7 @@ const dishDetailSelect = {
     tags: { select: { tag: { select: { name: true, slug: true } } } },
     restaurants: {
         where: { restaurant: { published: true } },
-        orderBy: { restaurant: { name: 'asc' } },
+        orderBy: [{ restaurant: { name: 'asc' } }, { restaurantId: 'asc' }],
         select: {
             signature: true,
             restaurant: {
@@ -39,7 +39,7 @@ const dishDetailSelect = {
         },
     },
     recipes: {
-        orderBy: { title: 'asc' },
+        orderBy: [{ title: 'asc' }, { id: 'asc' }],
         select: { title: true, slug: true, difficulty: true, cookMinutes: true, servings: true },
     },
 } satisfies Prisma.DishSelect;
