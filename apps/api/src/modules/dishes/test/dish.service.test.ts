@@ -70,4 +70,16 @@ describe('getDishBySlug', () => {
         const args = db.findUnique.mock.calls[0][0];
         expect(args.select?.restaurants).toMatchObject({ where: { restaurant: { published: true } } });
     });
+
+    it('orders restaurants and recipes deterministically when names tie', async () => {
+        db.findUnique.mockResolvedValue(null);
+
+        await getDishBySlug('pho-bo');
+
+        const args = db.findUnique.mock.calls[0][0];
+        expect(args.select?.restaurants).toMatchObject({
+            orderBy: [{ restaurant: { name: 'asc' } }, { restaurantId: 'asc' }],
+        });
+        expect(args.select?.recipes).toMatchObject({ orderBy: [{ title: 'asc' }, { id: 'asc' }] });
+    });
 });
