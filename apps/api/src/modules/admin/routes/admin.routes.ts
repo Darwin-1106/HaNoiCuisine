@@ -10,6 +10,7 @@ import * as reviewController from '../controllers/admin-review.controller.js';
 import * as dishController from '../controllers/admin-dish.controller.js';
 import * as recipeController from '../controllers/admin-recipe.controller.js';
 import * as itineraryController from '../controllers/admin-itinerary.controller.js';
+import * as tagController from '../controllers/admin-tag.controller.js';
 
 export const adminRouter = Router();
 
@@ -49,3 +50,6 @@ adminRouter.get('/itineraries', asyncHandler(itineraryController.list));
 adminRouter.get('/itineraries/:id', asyncHandler(itineraryController.detail));
 adminRouter.post('/itineraries', asyncHandler(itineraryController.create));
 adminRouter.patch('/itineraries/:id', asyncHandler(itineraryController.update));
+adminRouter.get('/tags', asyncHandler(tagController.list));
+adminRouter.post('/tags', asyncHandler(tagController.create));
+adminRouter.patch('/tags/:id', asyncHandler(tagController.update));
