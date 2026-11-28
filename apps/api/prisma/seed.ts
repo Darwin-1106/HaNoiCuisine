@@ -1,5 +1,6 @@
 // Seed the database with sample data and an admin account for local development
 import { PrismaClient, TimeSlot, Difficulty } from '@prisma/client';
+import { PrismaMariaDb } from '@prisma/adapter-mariadb';
 import { hashPassword } from '../src/modules/auth/services/password.js';
 import { requireEnv } from '../src/config/env.js';
 
@@ -9,7 +10,7 @@ try {
     // no .env file: use existing environment variables
 }
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({ adapter: new PrismaMariaDb(requireEnv('DATABASE_URL')) });
 
 async function main() {
     const adminEmail = requireEnv('SEED_ADMIN_EMAIL');

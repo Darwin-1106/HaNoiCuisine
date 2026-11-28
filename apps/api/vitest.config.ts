@@ -7,6 +7,7 @@ export default defineConfig({
         include: ['src/**/*.test.ts'],
         env: {
             CORS_ORIGIN: 'test-origin',
+            DATABASE_URL: 'mysql://test@localhost/test',
         },
         mockReset: true,
         restoreMocks: true,
